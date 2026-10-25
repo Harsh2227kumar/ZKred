@@ -66,7 +66,7 @@
 - **Acceptance criteria:** [ ] The request has a nonce + expiry · [ ] the consent screen lists *revealed fields*, *predicates proven*, and *never shared* fields, computed from the policy + the wallet's credentials.
 
 ### F7 / F8 — Selective disclosure + age proof
-- **Acceptance criteria:** [ ] BBS derived proof reveals only the policy's `reveal` fields + mandatory meta (`cred_type`, `issuer_did`, `key_id`, `batch_id`, `status_list_id`, `status_index`, `commitment`, `dob_commitment` when an age predicate is used) · [ ] the presentation header = request nonce (anti-replay) · [ ] the age SNARK public inputs = `[dob_commitment, today_days, min_age_days]` · [ ] proof generation < 5 s in Chrome on a laptop.
+- **Acceptance criteria:** [ ] BBS derived proof reveals only the policy's `reveal` fields + mandatory meta (`cred_type`, `issuer_did`, `key_id`, `batch_id`, `status_list_id`, `status_index`, `commitment`, `dob_commitment` when an age predicate is used) · [ ] the presentation header = request nonce (anti-replay) · [ ] the age SNARK public signals = `[dob_commitment, cutoff_days]` (cutoff = today − N calendar years) · [ ] proof generation < 5 s in Chrome on a laptop.
 
 ### F9 — Verifier engine
 - **Acceptance criteria:** [ ] Returns `steps[]` in the order `issuer_signature`, `zk_claim`, `revocation_status`, `key_epoch_anchor` with `ok`, `code`, `message` · [ ] fails closed on chain/RPC errors · [ ] stores only `{request_id, result, steps, revealed_fields}`.

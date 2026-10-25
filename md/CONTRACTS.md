@@ -312,7 +312,9 @@ export function verifyCredential(c: SignedCredential, publicKey: Uint8Array): Pr
 export function deriveDisclosure(c: SignedCredential, publicKey: Uint8Array, revealFields: string[], nonce: Uint8Array): Promise<{ disclosed: Record<string, string>; bbsProof: Uint8Array }>;
 export function verifyDisclosure(i: { publicKey: Uint8Array; type: CredentialType; disclosed: Record<string, string>; bbsProof: Uint8Array; nonce: Uint8Array }): Promise<boolean>;
 
-// Age ZK (Circom age_gte; Poseidon(dob_days, salt) == dob_commitment ∧ today_days − dob_days ≥ min_days)
+// Age ZK (Circom age_gte): proves Poseidon(dob_days, salt) == dob_commitment ∧ dob_days ≤ cutoff_days.
+// Dates = whole days since 1900-01-01 UTC (16-bit). cutoff_days = todayDays − minAgeYears calendar years (computed in zk-core).
+// publicSignals = [dob_commitment, cutoff_days]. Verifier accepts if cutoff_days ≤ its own cutoff + AGE_PROOF_MAX_SKEW_DAYS.
 export function dobCommitment(dobDays: bigint, salt: bigint): Promise<string>;              // circomlibjs Poseidon
 export function proveAgeGte(i: { dobDays: bigint; salt: bigint; todayDays: number; minAgeYears: number; artifacts: ZkArtifacts }): Promise<{ proof: object; publicSignals: string[] }>;
 export function verifyAgeGte(i: { proof: object; publicSignals: string[]; vkey: object }): Promise<boolean>;
@@ -467,7 +469,7 @@ Code reads these **only** through `backend/src/config.ts` / `frontend/src/config
 | `REQUEST_TTL_SECONDS` | no (`900`) | int | presentation request expiry |
 | `STATUS_LIST_SIZE` | no (`16384`) | int | herd-privacy list size |
 | `BATCH_MAX_SIZE` | no (`256`) | int | auto-close batch size |
-| `AGE_PROOF_MAX_SKEW_DAYS` | no (`1`) | int | allowed `today_days` drift |
+| `AGE_PROOF_MAX_SKEW_DAYS` | no (`1`) | int | days a proof's `cutoff_days` may exceed the verifier's own cutoff (clock drift) |
 | `ZK_ARTIFACTS_DIR` | yes | path to `circuits/build` | vkey for server verification |
 | `AWS_REGION` | yes | Bedrock region | Bedrock client |
 | `BEDROCK_MODEL_ID` | yes | e.g. `anthropic.claude-sonnet-5-5` (confirm in the Bedrock console; can be an inference-profile id) | Claude model |
@@ -513,4 +515,5 @@ Code reads these **only** through `backend/src/config.ts` / `frontend/src/config
 |---|---|---|---|
 | H0 | Initial draft | — | |
 | H2 | Initial freeze | — | |
+| V0-H4 | Age circuit public signals are `[dob_commitment, cutoff_days]` (exact calendar cutoff) instead of `[dob_commitment, today_days, min_age_days]`; `proveAgeGte` signature unchanged | No (zk-core not built yet) | |
 | V0-H2 | `CredentialSchema.fields[].source` added (meta / claim / derived) so the issue form renders only claim fields | No (additive) | |
