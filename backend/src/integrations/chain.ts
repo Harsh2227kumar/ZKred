@@ -6,9 +6,9 @@ export const provider = new JsonRpcProvider(config.CHAIN_RPC_URL, config.CHAIN_I
 
 /** Resolves when the RPC answers and reports the configured chain id. */
 export async function chainHealth(): Promise<void> {
-  const network = await provider.getNetwork();
-  if (Number(network.chainId) !== config.CHAIN_ID) {
-    throw new Error(`RPC chain id ${network.chainId} != CHAIN_ID ${config.CHAIN_ID}`);
+  // Ask the node itself: with staticNetwork, provider.getNetwork() just echoes config.CHAIN_ID back.
+  const chainId = BigInt(await provider.send("eth_chainId", []));
+  if (chainId !== BigInt(config.CHAIN_ID)) {
+    throw new Error(`RPC chain id ${chainId} != CHAIN_ID ${config.CHAIN_ID}`);
   }
-  await provider.getBlockNumber();
 }

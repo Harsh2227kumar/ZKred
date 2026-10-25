@@ -1,21 +1,18 @@
 import cors from "cors";
 import express from "express";
-import { pino } from "pino";
 import { pinoHttp } from "pino-http";
 import { apiRouter } from "./api/router";
 import { errorHandler, notFoundHandler } from "./api/middleware/errors";
 import { API_BASE_PATH, config } from "./config";
+import { logger } from "./logger";
 
-export const logger = pino({
-  level: config.LOG_LEVEL,
-  // Never log auth headers (admin/wallet tokens).
-  redact: ["req.headers.authorization", "req.headers.cookie"],
-});
+export { logger };
 
 export function createApp() {
   const app = express();
   app.disable("x-powered-by");
-  app.set("trust proxy", true); // behind Caddy
+  // Exactly one proxy hop (Caddy). `true` would trust any client-supplied X-Forwarded-For and let callers spoof req.ip.
+  app.set("trust proxy", 1);
   app.use(pinoHttp({ logger, autoLogging: config.NODE_ENV !== "test" }));
   app.use(cors({ origin: config.CORS_ORIGINS }));
   app.use(express.json({ limit: "2mb" }));

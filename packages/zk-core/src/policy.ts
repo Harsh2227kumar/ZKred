@@ -87,7 +87,8 @@ export const PresentationItemSchema = z.object({
   age_proof: z
     .object({
       proof: z.record(z.string(), z.unknown()),
-      public_signals: z.array(z.string()),
+      // [dob_commitment, cutoff_days] as canonical decimals; verifyAgeGte also range-checks them against the field.
+      public_signals: z.array(z.string().regex(/^(0|[1-9]\d{0,76})$/, "expected a canonical decimal field element")).length(2),
     })
     .nullable(),
 });

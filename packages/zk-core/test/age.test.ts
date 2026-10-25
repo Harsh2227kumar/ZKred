@@ -2,6 +2,7 @@
 // Runs against the COMMITTED circuits/build artifacts (the same files the wallet and verifier load).
 import { readFile } from "node:fs/promises";
 import { buildPoseidon } from "circomlibjs";
+import * as snarkjs from "snarkjs";
 import { beforeAll, describe, expect, it } from "vitest";
 import { ageCutoffDays, dateToDays, dobCommitment, proveAgeGte, randomDobSalt, verifyAgeGte, type ZkArtifacts } from "../src";
 
@@ -57,6 +58,26 @@ describe("age_gte proof", () => {
     await expect(
       proveAgeGte({ dobDays: onCutoff + 1n, salt, todayDays: today, minAgeYears: 21, artifacts }),
     ).rejects.toMatchObject({ code: "AGE_REQUIREMENT_NOT_MET" });
+  });
+
+  it("rejects public signals that only verify after reduction mod the BN254 field (age bypass)", async () => {
+    // A 10-year-old proves the TRUE statement "born on or before my own birthday", then rewrites cutoff_days
+    // as a negative or ≥ r number. snarkjs reduces it mod r, so the Groth16 check alone would still pass, and a
+    // verifier comparing cutoff_days ≤ its own cutoff would accept a minor.
+    const r = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
+    const dobDays = BigInt(dateToDays("2016-10-25"));
+    const salt = randomDobSalt();
+    const commitment = await dobCommitment(dobDays, salt);
+    const { proof, publicSignals } = await snarkjs.groth16.fullProve(
+      { dob_days: dobDays.toString(), salt: salt.toString(), dob_commitment: commitment, cutoff_days: dobDays.toString() },
+      { type: "mem", data: new Uint8Array(artifacts.wasm as ArrayBuffer) },
+      { type: "mem", data: new Uint8Array(artifacts.zkey as ArrayBuffer) },
+    );
+    expect(await verifyAgeGte({ proof, publicSignals, vkey })).toBe(true);
+    for (const aliased of [(dobDays - r).toString(), (dobDays + r).toString(), `0${dobDays}`, ` ${dobDays}`]) {
+      expect(await verifyAgeGte({ proof, publicSignals: [publicSignals[0]!, aliased], vkey })).toBe(false);
+    }
+    expect(await verifyAgeGte({ proof, publicSignals: [(BigInt(commitment) + r).toString(), publicSignals[1]!], vkey })).toBe(false);
   });
 
   it("dobCommitment matches circomlibjs Poseidon (what the circuit uses)", async () => {

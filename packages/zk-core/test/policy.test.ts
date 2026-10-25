@@ -64,7 +64,7 @@ describe("PresentationSchema", () => {
     disclosed: { "0": "GovernmentId", "13": randomHex32() },
     bbs_proof: "AbC-_9",
     merkle_proof: [randomHex32()],
-    age_proof: { proof: { pi_a: [] }, public_signals: ["1"] },
+    age_proof: { proof: { pi_a: [] }, public_signals: ["1", "38000"] },
   });
 
   it("accepts a well-formed presentation", () => {
@@ -77,5 +77,12 @@ describe("PresentationSchema", () => {
     expect(PresentationSchema.safeParse({ request_id: crypto.randomUUID(), nonce: "bm9uY2U", items: [bad] }).success).toBe(false);
     const badKey = { ...item(), key_id: "0x12" };
     expect(PresentationSchema.safeParse({ request_id: crypto.randomUUID(), nonce: "bm9uY2U", items: [badKey] }).success).toBe(false);
+  });
+
+  it("rejects age proofs whose public signals are not exactly two canonical decimals", () => {
+    for (const public_signals of [["1"], ["1", "-5"], ["1", "05"], ["1", "0x10"], ["1", "2", "3"]]) {
+      const bad = { ...item(), age_proof: { proof: { pi_a: [] }, public_signals } };
+      expect(PresentationSchema.safeParse({ request_id: crypto.randomUUID(), nonce: "bm9uY2U", items: [bad] }).success).toBe(false);
+    }
   });
 });

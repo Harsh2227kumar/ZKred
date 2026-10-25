@@ -1,6 +1,6 @@
 // Option lists, chain details and credential layouts for the UI (CONTRACTS §3.1).
 // Values mirror the Postgres enums / zk-core layouts; labels are UI copy.
-import { CREDENTIAL_LAYOUTS, CREDENTIAL_TYPES } from "@zkred/zk-core";
+import { CREDENTIAL_LAYOUTS, CREDENTIAL_TYPES, PREDICATE_TYPES } from "@zkred/zk-core";
 import { config } from "../config";
 import { batchStatus, credentialType, issuerKind, keyStatus, verificationResult } from "../db/schema";
 import type { ChainInfo, CredentialSchemaList, Enums } from "../schemas/meta.schema";
@@ -26,8 +26,7 @@ const LABELS: Record<string, string> = {
   rejected: "Rejected",
 };
 
-// Not stored in the DB: these mirror the contract (CONTRACTS §3.6) and the verifier engine.
-const PREDICATE_TYPES = ["age_gte"] as const;
+// Not stored in the DB: mirrors the contract (CONTRACTS §3.6) and the verifier engine. Predicate types come from zk-core.
 const VERIFICATION_STEPS = ["issuer_signature", "zk_claim", "revocation_status", "key_epoch_anchor"] as const;
 
 const options = (values: readonly string[]) => values.map((value) => ({ value, label: LABELS[value] ?? value }));
