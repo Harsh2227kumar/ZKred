@@ -46,6 +46,8 @@ const EnvSchema = z
     STATUS_REGISTRY_ADDRESS: hexAddress,
     EXPLORER_TX_URL_TEMPLATE: z.string().includes("{tx}"),
     ISSUER_GAS_FUNDING_WEI: z.string().regex(/^\d+$/).default("2000000000000000"),
+    CHAIN_TX_TIMEOUT_MS: z.coerce.number().int().positive().default(120000),
+    CHAIN_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(1000),
 
     BREACH_WINDOW_SECONDS: z.coerce.number().int().positive().default(172800),
     REQUEST_TTL_SECONDS: z.coerce.number().int().positive().default(900),
