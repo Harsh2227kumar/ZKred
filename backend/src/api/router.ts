@@ -4,6 +4,7 @@ import { healthRouter } from "./health.routes";
 import { issuanceRouter } from "./issuance.routes";
 import { issuersRouter } from "./issuers.routes";
 import { metaRouter } from "./meta.routes";
+import { walletsRouter } from "./wallets.routes";
 
 export const apiRouter = Router();
 
@@ -16,3 +17,4 @@ apiRouter.use(healthRouter);
 apiRouter.use(metaRouter);
 apiRouter.use(issuersRouter);
 apiRouter.use(issuanceRouter);
+apiRouter.use(walletsRouter);

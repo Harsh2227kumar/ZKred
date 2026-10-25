@@ -68,7 +68,10 @@ export const wallets = pgTable("wallets", {
   encPublicKey: text("enc_public_key").notNull(),
   tokenHash: text("token_hash").notNull(),
   createdAt: createdAt(),
-});
+}, (t) => [
+  // Every 👛 request looks the wallet up by its token hash.
+  unique("wallets_token_hash_unique").on(t.tokenHash),
+]);
 
 export const issuedCredentials = pgTable("issued_credentials", {
   id: uuid("id").primaryKey().defaultRandom(),

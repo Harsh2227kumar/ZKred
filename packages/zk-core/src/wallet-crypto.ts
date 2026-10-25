@@ -147,8 +147,19 @@ async function decryptBackup(
   return JSON.parse(bytesToUtf8(new Uint8Array(pt)));
 }
 
+/** True if `publicKeyB64` is a raw (uncompressed) P-256 point that offers can be encrypted to. */
+async function isValidPublicKey(publicKeyB64: string): Promise<boolean> {
+  try {
+    await subtle().importKey("raw", buf(base64urlToBytes(publicKeyB64)), ECDH_PARAMS, false, []);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export const walletCrypto = {
   generateWalletKeyPair,
+  isValidPublicKey,
   encryptOffer,
   decryptOffer,
   encryptBackup,

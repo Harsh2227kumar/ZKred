@@ -18,6 +18,18 @@ import {
   StatusListParams,
 } from "./issuance.schema";
 import { Issuer, IssuerCreate, IssuerKey, IssuerList, IssuerParams } from "./issuers.schema";
+import {
+  Backup,
+  BackupIn,
+  CredentialOffer,
+  CredentialOfferList,
+  WalletCreate,
+  WalletCreated,
+  WalletLookupQuery,
+  WalletOfferParams,
+  WalletParams,
+  WalletPublic,
+} from "./wallets.schema";
 import { ChainInfo, CredentialSchemaList, Enums } from "./meta.schema";
 
 const registry = new OpenAPIRegistry();
@@ -34,6 +46,13 @@ const adminAuth = registry.registerComponent("securitySchemes", "adminToken", {
   description: "ISSUER_ADMIN_TOKEN (🔐 endpoints)",
 });
 const admin = [{ [adminAuth.name]: [] }];
+
+const walletAuth = registry.registerComponent("securitySchemes", "walletToken", {
+  type: "http",
+  scheme: "bearer",
+  description: "wallet_token from POST /wallets (👛 endpoints); only opens its own wallet",
+});
+const wallet = [{ [walletAuth.name]: [] }];
 
 registry.registerPath({
   method: "get",
@@ -134,6 +153,53 @@ registry.registerPath({
   tags: ["issuance"],
   request: { params: StatusListParams },
   responses: { 200: json(StatusListOut, "Revocation bitstring + on-chain hash"), ...errorResponses },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/wallets",
+  tags: ["wallets"],
+  request: { body: json(WalletCreate, "New holder wallet") },
+  responses: { 201: json(WalletCreated, "Wallet created; wallet_token is shown only here"), ...errorResponses },
+});
+registry.registerPath({
+  method: "get",
+  path: "/wallets/lookup",
+  tags: ["wallets"],
+  request: { query: WalletLookupQuery },
+  responses: { 200: json(WalletPublic, "Public wallet info (pick a recipient)"), ...errorResponses },
+});
+registry.registerPath({
+  method: "get",
+  path: "/wallets/{wallet_id}/offers",
+  tags: ["wallets"],
+  security: wallet,
+  request: { params: WalletParams },
+  responses: { 200: json(CredentialOfferList, "Encrypted credential offers, newest first"), ...errorResponses },
+});
+registry.registerPath({
+  method: "post",
+  path: "/wallets/{wallet_id}/offers/{offer_id}/claim",
+  tags: ["wallets"],
+  security: wallet,
+  request: { params: WalletOfferParams },
+  responses: { 200: json(CredentialOffer, "Offer with claimed_at set (idempotent)"), ...errorResponses },
+});
+registry.registerPath({
+  method: "put",
+  path: "/wallets/{wallet_id}/backup",
+  tags: ["wallets"],
+  security: wallet,
+  request: { params: WalletParams, body: json(BackupIn, "Passphrase-encrypted wallet backup") },
+  responses: { 200: json(Backup, "Stored backup"), ...errorResponses },
+});
+registry.registerPath({
+  method: "get",
+  path: "/wallets/{wallet_id}/backup",
+  tags: ["wallets"],
+  security: wallet,
+  request: { params: WalletParams },
+  responses: { 200: json(Backup, "The latest backup"), ...errorResponses },
 });
 
 export function buildOpenApiDocument() {

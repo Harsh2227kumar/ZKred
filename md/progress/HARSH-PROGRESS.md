@@ -3,8 +3,8 @@
 **Role:** Lead · backend API + DB · crypto core (zk-core) · smart contracts · ZK circuit · Bedrock AI · contract owner · merges PRs
 **Owns:** `backend/`, `packages/zk-core/`, `contracts/`, `circuits/`, `md/CONTRACTS.md`, root workspace files
 **AI tools:** Claude Code (Pro; budget it for crypto/engine work) + free tools for boilerplate
-**Current branch:** `harsh/V1-H2-issuance`
-**Current task:** `V1-H2` issuance, batches, anchor
+**Current branch:** `harsh/V1-H3-wallet-api`
+**Current task:** `V1-H3` wallet endpoints
 
 > Only HARSH (and HARSH's AI agent) edits this file. Append; don't rewrite history.
 > Read the bottom of this file aloud at every sync.
@@ -21,7 +21,8 @@
 | V0-H4 | age_gte circuit + committed artifacts | DONE | |
 | V0-H5 | zk-core skeleton + BBS spike + walletCrypto | DONE (+ age proof wired to the V0-H4 circuit) | |
 | V1-H1 | integrations/chain.ts + issuers & keys endpoints | DONE | #19 |
-| V1-H2 | Issuance, batches, anchor, leaves, status lists | DONE | |
+| V1-H2 | Issuance, batches, anchor, leaves, status lists | DONE | #20 |
+| V1-H3 | Wallet endpoints (create, lookup, offers, claim, backup) | DONE | |
 
 ## Blocked on
 
@@ -72,3 +73,4 @@ Format: `HH:MM | TASK-ID | STARTED/DONE/BLOCKED/HANDOFF | what happened | files`
 - *What still links presentations?* In V1 the batch commitment + status index are revealed (k-anonymity within a batch). V2 replaces this with ZK Merkle membership + ZK non-revocation.
 - 16:45 | V1-H1 | DONE | integrations/chain.ts: registerIssuer/fundGovernance/addKey/rotateKey + getIssuer/getKey; txs serialised per signer (no nonce races), ChainError CHAIN_UNAVAILABLE / CHAIN_TX_FAILED(tx_hash). POST/GET /issuers, GET /issuers/{id}, POST .../keys/rotate (admin token, constant-time); BBS + governance keys AES-256-GCM at rest with row-bound AAD; active_from = chain block time; per-issuer lock (no double-active key). Integration suites (real Postgres + Hardhat node) skip unless TEST_* env is set. 29 backend tests green with DB + chain. New: backend/test/integration, backend/src/keyed-lock.ts | files: backend/src/{config.ts,keyed-lock.ts,api/*,core/{auth,issuers,secrets-at-rest}.ts,db/{errors.ts,repositories/issuers.repo.ts},integrations/chain.ts,schemas/*}, backend/test/**, md/CONTRACTS.md
 - 17:05 | V1-H2 | DONE | zk-core merkle (hashed leaves, sorted pairs, second-preimage test) + statusList (fflate gzip) implemented TDD. POST/GET /issuers/{id}/credentials (claims validated per layout, GovernmentId dob_commitment derived server-side, BBS-signed, ECDH-encrypted offer, keyset cursor), GET batches, POST anchor (root = merkleRoot(leaves), chain-time anchored_at, re-syncs DB if the chain already has it, refuses retired-key batches), GET /batches/{id}/leaves, GET /status-lists/{id} (onchain_hash read from chain). Slot + leaf claimed in one DB tx guarded by next_index. 37 backend + 49 zk-core tests green. Dep: fflate (zk-core) | files: packages/zk-core/{src/{merkle,status-list,pending,index}.ts,test/*,package.json}, backend/src/{config.ts,api/issuance.routes.ts,core/{claims,issuance}.ts,db/repositories/{issuance,wallets}.repo.ts,integrations/chain.ts,schemas/*}, backend/test/integration/*, md/CONTRACTS.md
+- 17:25 | V1-H3 | DONE | POST /wallets (P-256 key validated via new zk-core walletCrypto.isValidPublicKey; token 32 random bytes, shown once, stored as SHA-256; 409 on taken name), GET /wallets/lookup, GET offers, POST claim (idempotent, 404 for another wallet's offer), PUT/GET backup (upsert). requireWalletOwner: 401 unknown token, 403 other wallet. TDD attack test: wallet A's token can't list/claim/back up wallet B. Migration 0002 unique wallets.token_hash. 44 backend + 50 zk-core tests green | files: backend/src/{api/{wallets.routes.ts,middleware/auth.ts,router.ts},core/{auth,wallets}.ts,db/{schema.ts,repositories/wallets.repo.ts},schemas/*}, backend/drizzle/0002_*, backend/test/integration/wallets.test.ts, packages/zk-core/{src/wallet-crypto.ts,test/wallet-crypto.test.ts}, md/CONTRACTS.md
