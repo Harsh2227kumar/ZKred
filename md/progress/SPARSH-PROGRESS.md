@@ -19,7 +19,7 @@
 | V0-S2 | docker-compose + Dockerfiles + Caddyfile + .env.examples | DONE | #11 |
 | V0-S3 | GitHub repo settings, CODEOWNERS handles | DONE | #12 |
 | V0-S4 | EC2 deploy hello-world | DONE | #13 |
-| V0-S5 | Bedrock model access + credentials | DONE | |
+| V0-S5 | Bedrock model access + credentials | DONE | #14 |
 
 ## Blocked on
 
