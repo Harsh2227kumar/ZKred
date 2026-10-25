@@ -11,14 +11,25 @@ export const apiClient = createClient<paths>({
   baseUrl: config.apiBaseUrl,
 });
 
-/**
- * For screens built ahead of their backend task: rejects with the standard 501 shape (CONTRACTS §2)
- * so the page shows a real error state instead of calling an endpoint that doesn't exist yet.
- */
-export function pendingEndpoint<T>(task: string): Promise<T> {
-  const error: ApiError = { error: { code: 'NOT_IMPLEMENTED', message: `Arrives with ${task}` } };
-  return Promise.reject(error);
+/** openapi-fetch result → data, or throw the standard error body so callers / React Query see it. */
+export async function unwrap<T>(call: Promise<{ data?: T; error?: unknown; response: Response }>): Promise<T> {
+  const { data, error, response } = await call;
+  if (error !== undefined || !response.ok) {
+    throw error ?? ({ error: { code: 'INTERNAL_ERROR', message: `HTTP ${response.status}` } } satisfies ApiError);
+  }
+  return data as T;
 }
+
+/** `Authorization: Bearer <token>` header for 🔐 admin and 👛 wallet endpoints. */
+export const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
+
+const ADMIN_TOKEN_KEY = 'zkred_issuer_admin_token';
+
+/** The issuer admin token lives in sessionStorage only (closed tab = gone). */
+export const adminToken = {
+  get: (): string => sessionStorage.getItem(ADMIN_TOKEN_KEY) ?? '',
+  set: (token: string) => sessionStorage.setItem(ADMIN_TOKEN_KEY, token),
+};
 
 /**
  * Maps standard API error shapes (md/CONTRACTS.md §2) to friendly user messages.
@@ -34,9 +45,9 @@ export function toUserMessage(error: unknown, fallbackMessage?: string): string 
     case 'BAD_REQUEST':
       return message || 'The request was malformed or missing parameters.';
     case 'UNAUTHORIZED':
-      return 'Session expired or invalid credentials. Please log in again.';
+      return 'Missing or invalid token. Enter the admin token (issuer / attack console) or reopen your wallet.';
     case 'FORBIDDEN':
-      return 'You do not have permission to access this resource.';
+      return message || 'You do not have permission to access this resource.';
     case 'NOT_FOUND':
       return message || 'The requested resource was not found.';
     case 'CONFLICT':
@@ -48,7 +59,7 @@ export function toUserMessage(error: unknown, fallbackMessage?: string): string 
     case 'VALIDATION_ERROR':
       return message || 'Please check your inputs and try again.';
     case 'POLICY_AMBIGUOUS':
-      return 'The requirements were ambiguous. Please review the clarification questions.';
+      return 'The requirement is ambiguous. Answer the questions below in your text, or build the policy manually.';
     case 'NOT_IMPLEMENTED':
       return 'This feature is scheduled for a future milestone (501 Not Implemented).';
     case 'AI_UNAVAILABLE':
@@ -59,9 +70,16 @@ export function toUserMessage(error: unknown, fallbackMessage?: string): string 
       return 'Blockchain RPC is unreachable. Verification fails closed for security.';
     case 'CHAIN_TX_FAILED':
       return 'On-chain transaction failed or reverted. Please check the transaction on BaseScan.';
+    case 'RATE_LIMITED':
+      return message || 'Too many requests. Please wait a minute and try again.';
+    case 'MISSING_CREDENTIAL':
+      return message || 'Your wallet has no credential that satisfies this request.';
+    case 'BAD_PASSPHRASE':
+      return 'Wrong passphrase.';
     case 'INTERNAL_ERROR':
       return 'An internal server error occurred. Please try again later.';
     default:
+      if (error instanceof Error && error.message) return error.message;
       return message || fallbackMessage || 'An unexpected error occurred. Please try again.';
   }
 }

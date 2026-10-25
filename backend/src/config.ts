@@ -53,6 +53,9 @@ const EnvSchema = z
     REQUEST_TTL_SECONDS: z.coerce.number().int().positive().default(900),
     STATUS_LIST_SIZE: z.coerce.number().int().min(1024).default(16384),
     BATCH_MAX_SIZE: z.coerce.number().int().positive().default(256),
+    CLAIM_MAX_CHARS: z.coerce.number().int().positive().default(256),
+    LIST_DEFAULT_LIMIT: z.coerce.number().int().positive().default(50),
+    LIST_MAX_LIMIT: z.coerce.number().int().positive().default(200),
     AGE_PROOF_MAX_SKEW_DAYS: z.coerce.number().int().min(0).default(1),
     ZK_ARTIFACTS_DIR: z.string().min(1),
 
@@ -64,6 +67,14 @@ const EnvSchema = z
     AI_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
     AI_MAX_TOKENS: z.coerce.number().int().positive().default(4000),
     AI_HEALTH_TTL_MS: z.coerce.number().int().positive().default(300000),
+    // Consent text is written while the verifier waits: short timeout, no retry, then the deterministic template.
+    AI_CONSENT_TIMEOUT_MS: z.coerce.number().int().positive().default(8000),
+    // Per client IP, fixed window: Bedrock-backed endpoints (parse, create request) and presentation verification.
+    RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60000),
+    RATE_LIMIT_AI_MAX: z.coerce.number().int().positive().default(10),
+    RATE_LIMIT_VERIFY_MAX: z.coerce.number().int().positive().default(30),
+    // GET /issuers reuses on-chain issuer reads this long, and serves the last read if the RPC is down.
+    ISSUER_CACHE_TTL_MS: z.coerce.number().int().positive().default(30000),
     HEALTH_CHECK_TIMEOUT_MS: z.coerce.number().int().positive().default(3000),
   })
   .refine((e) => e.KEY_ENCRYPTION_SECRET !== e.GOVERNANCE_KEY_ENCRYPTION_SECRET, {

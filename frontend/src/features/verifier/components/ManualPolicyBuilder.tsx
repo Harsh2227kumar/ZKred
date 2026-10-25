@@ -167,7 +167,7 @@ export const ManualPolicyBuilder: React.FC<ManualPolicyBuilderProps> = ({
 
     const policy: PresentationPolicy = {
       purpose: purpose.trim(),
-      requirements,
+      requirements: requirements as PresentationPolicy['requirements'],
       never_collect: neverCollect,
     };
 

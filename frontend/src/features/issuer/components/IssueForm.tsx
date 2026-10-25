@@ -15,7 +15,7 @@ import { useIssueCredential, useLookupWallet } from '@/api/queries/issuers';
 import { toUserMessage } from '@/api/client';
 import { Hex } from '@/components/common/Hex';
 import { hasAdminToken } from '@/lib/storage/session-token';
-import type { IssueCredentialOut } from '@/api/schemas';
+import type { IssueCredentialIn, IssueCredentialOut } from '@/api/schemas';
 
 interface IssueFormProps {
   issuerId: string;
@@ -78,7 +78,7 @@ export const IssueForm: React.FC<IssueFormProps> = ({
 
     try {
       const result = await issueMutation.mutateAsync({
-        credential_type: currentSchema?.type || selectedType,
+        credential_type: (currentSchema?.type || selectedType) as IssueCredentialIn['credential_type'],
         wallet_id: recipient.id,
         claims: parsedClaims,
       });

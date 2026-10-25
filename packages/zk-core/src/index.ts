@@ -1,5 +1,4 @@
 // Public API of @zkred/zk-core (md/CONTRACTS.md §4.1). Everything not exported here is internal.
-// Merkle, status list and buildPresentation are typed stubs that throw NOT_IMPLEMENTED until V1.1.
 
 export type { Hex32, SignedCredential, ZkArtifacts } from "./types";
 export { ZkCoreError } from "./errors";
@@ -37,14 +36,10 @@ export {
   verifyDisclosure,
 } from "./bbs";
 
-export { walletCrypto } from "./wallet-crypto";
+export { walletCrypto, BACKUP_KDF_ITERATIONS } from "./wallet-crypto";
 
 export { dobCommitment, proveAgeGte, verifyAgeGte, dateToDays, ageCutoffDays, randomDobSalt } from "./age";
 
-export {
-  merkleRoot,
-  merkleProof,
-  verifyMerkleProof,
-  statusList,
-  buildPresentation,
-} from "./pending";
+export { merkleRoot, merkleProof, verifyMerkleProof } from "./merkle";
+export { statusList } from "./status-list";
+export { buildPresentation, matchCredentials, revealFieldsFor, type IssuerInfo } from "./presentation";

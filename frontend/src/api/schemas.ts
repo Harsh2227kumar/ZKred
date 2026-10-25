@@ -20,122 +20,54 @@ export type IssuerKey = Schemas['IssuerKey'];
 export type IssuerCreate = Schemas['IssuerCreate'];
 export type IssuerKind = Schemas['IssuerKind'];
 export type IssuersListResponse = Schemas['IssuerList'];
+export type CompromiseReport = Schemas['CompromiseReport'];
 
-// Contracts mirror md/CONTRACTS.md §3.2 & §3.6
-export interface Batch {
-  batch_id: string;
-  issuer_id: string;
-  key_id: string;
-  size: number;
-  status: 'open' | 'anchored';
-  root: string | null;
-  anchored_at: string | null;
-  tx_hash: string | null;
-}
+export type IssueCredentialIn = Schemas['IssueCredentialIn'];
+export type IssueCredentialOut = Schemas['IssueCredentialOut'];
+export type IssuedCredential = Schemas['IssuedCredential'];
+export type IssuedCredentialList = Schemas['IssuedCredentialList'];
+export type Batch = Schemas['Batch'];
+export type BatchLeaves = Schemas['BatchLeaves'];
+export type StatusListOut = Schemas['StatusListOut'];
+export type RevokeOut = Schemas['RevokeOut'];
 
-export interface BatchesListResponse {
-  items: Batch[];
-}
+// Aliases kept for the V1-S1 issuer console call sites (md/CONTRACTS.md §3.2 & §3.6)
+export type BatchesListResponse = Schemas['BatchList'];
+export type IssuedCredentialsListResponse = Schemas['IssuedCredentialList'];
+export type WalletLookupResponse = Schemas['WalletPublic'];
 
-export interface IssuedCredential {
-  id: string;
-  credential_type: string;
-  wallet_id: string;
-  batch_id: string;
-  status_index: number;
-  commitment: string;
-  key_id: string;
-  issued_at: string;
-  revoked_at: string | null;
-}
+export type WalletCreated = Schemas['WalletCreated'];
+export type WalletPublic = Schemas['WalletPublic'];
+export type CredentialOffer = Schemas['CredentialOffer'];
+export type Backup = Schemas['Backup'];
+export type BackupIn = Schemas['BackupIn'];
+export type ReissueIn = Schemas['ReissueIn'];
 
-export interface IssuedCredentialsListResponse {
-  items: IssuedCredential[];
-  next_cursor?: string | null;
-}
-
-export interface IssueCredentialIn {
-  credential_type: string;
-  wallet_id: string;
-  claims: Record<string, string | number>;
-}
-
-export interface IssueCredentialOut {
-  credential_id: string;
-  offer_id: string;
-  batch_id: string;
-  status_list_id: string;
-  status_index: number;
-  commitment: string;
-}
-
-export interface WalletLookupResponse {
-  id: string;
-  display_name: string;
-  enc_public_key: string;
-}
-
+// Local request shape for POST /wallets (kept for the V1-S2 wallet call sites)
 export interface WalletCreateIn {
   display_name: string;
   enc_public_key: string;
 }
 
-export interface WalletCreated {
-  id: string;
-  display_name: string;
-  wallet_token: string;
-}
+// Alias kept for the V1-S2 wallet call sites
+export type OffersListResponse = Schemas['CredentialOfferList'];
 
-export interface CredentialOffer {
-  id: string;
-  wallet_id: string;
-  issuer_id: string;
-  credential_type: string;
-  ephemeral_public_key: string;
-  iv: string;
-  ciphertext: string;
-  created_at: string;
-  claimed_at: string | null;
-}
+export type Verifier = Schemas['Verifier'];
+export type ParseOut = Schemas['ParseOut'];
+export type PresentationPolicy = Schemas['PresentationPolicy'];
+export type PresentationRequest = Schemas['PresentationRequest'];
+export type Presentation = Schemas['Presentation'];
+export type Verification = Schemas['Verification'];
+export type VerificationStepResult = Schemas['VerificationStepResult'];
 
-export interface OffersListResponse {
-  items: CredentialOffer[];
-}
+// Aliases kept for the V1-S3 verifier portal call sites (CONTRACTS §3.4 & §3.6)
+export type VerifiersListResponse = Schemas['VerifierList'];
+export type VerifierCreateIn = Schemas['VerifierCreate'];
+export type ParseIn = Schemas['ParseIn'];
+export type RequestCreateIn = Schemas['RequestCreate'];
+export type VerificationsListResponse = Schemas['VerificationList'];
 
-export interface BackupIn {
-  ciphertext: string;
-  iv: string;
-  salt: string;
-  kdf_iterations: number;
-  version: number;
-}
-
-export interface Backup {
-  wallet_id: string;
-  ciphertext: string;
-  iv: string;
-  salt: string;
-  kdf_iterations: number;
-  version: number;
-  updated_at: string;
-}
-
-// Verifiers & Requests (CONTRACTS §3.4 & §3.6)
-export interface Verifier {
-  id: string;
-  name: string;
-  did: string;
-  created_at: string;
-}
-
-export interface VerifierCreateIn {
-  name: string;
-}
-
-export interface VerifiersListResponse {
-  items: Verifier[];
-}
-
+// No generated component for this (inline inside PresentationPolicy)
 export interface PresentationRequirement {
   id: string;
   credential_type: string;
@@ -148,58 +80,7 @@ export interface PresentationRequirement {
   require_not_revoked: boolean;
 }
 
-export interface PresentationPolicy {
-  purpose: string;
-  requirements: PresentationRequirement[];
-  never_collect: string[];
-}
-
-export interface ParseIn {
-  text: string;
-}
-
-export interface ParseOut {
-  policy: PresentationPolicy;
-  consent_summary: string;
-  minimisation_notes: string[];
-}
-
-export interface RequestCreateIn {
-  verifier_id: string;
-  policy: PresentationPolicy;
-  nl_text: string | null;
-}
-
-export interface PresentationRequest {
-  id: string;
-  verifier_id: string;
-  verifier_name: string;
-  policy: PresentationPolicy;
-  consent_summary: string;
-  nonce: string;
-  expires_at: string;
-  created_at: string;
-  wallet_url: string;
-}
-
-export interface VerificationStepResult {
-  requirement_id: string;
-  step: string;
-  ok: boolean;
-  code: string;
-  message: string;
-}
-
-export interface Verification {
-  id: string;
-  request_id: string;
-  mode: 'full' | 'naive';
-  result: 'accepted' | 'rejected';
-  steps: VerificationStepResult[];
-  revealed: Record<string, Record<string, string>>;
-  created_at: string;
-}
-
-export interface VerificationsListResponse {
-  items: Verification[];
-}
+export type StolenKey = Schemas['StolenKey'];
+export type ForgeOut = Schemas['ForgeOut'];
+export type AttackRunOut = Schemas['AttackRunOut'];
+export type AttackState = Schemas['AttackState'];
