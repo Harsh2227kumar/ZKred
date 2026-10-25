@@ -195,6 +195,15 @@ export async function revokeCredential(issuerId: string, credentialId: string): 
 }
 
 /**
+ * True when no verifier will accept this credential any more through no fault of the holder: its batch was anchored
+ * at or after its key's compromise cutoff, or it was never anchored and its key can no longer anchor.
+ */
+function needsReissue(batch: repo.BatchRow, key: { status: string; compromisedFrom: Date | null }): boolean {
+  if (!batch.anchoredAt) return key.status !== "active";
+  return key.status === "compromised" && key.compromisedFrom !== null && batch.anchoredAt.getTime() >= key.compromisedFrom.getTime();
+}
+
+/**
  * Re-issues a holder's credential under the issuer's current key (breach recovery). The old credential must carry a
  * valid signature by one of this issuer's keys AND its commitment must be in the issuer's own records for this
  * wallet, unrevoked and not yet re-issued: forgeries made with a stolen key are not in those records, so they can't
@@ -215,6 +224,12 @@ export async function reissue(issuerId: string, input: ReissueIn): Promise<{ off
     if (record.walletId !== input.wallet_id) throw refused("issued to another wallet");
     if (record.revokedAt) throw refused("revoked");
     if (await repo.hasReissue(record.id)) throw new AppError("CONFLICT", "This credential was already re-issued");
+    const batch = await repo.findBatch(record.batchId);
+    if (!batch || !needsReissue(batch, key)) {
+      throw new AppError("CONFLICT", "This credential is still valid; there is nothing to refresh", {
+        old_credential: batch?.anchoredAt ? "anchored before any compromise cutoff" : "waiting for its batch to be anchored",
+      });
+    }
 
     const claims: Record<string, string> = {};
     for (const f of CREDENTIAL_LAYOUTS[old.type].fields) {
@@ -276,32 +291,50 @@ export async function anchorBatch(issuerId: string, batchId: Hex32): Promise<Bat
     const issuer = await requireIssuer(issuerId);
     const batch = await repo.findBatch(batchId);
     if (!batch || batch.issuerId !== issuerId) throw new AppError("NOT_FOUND", "Batch not found");
-    if (batch.status === "anchored") throw new AppError("CONFLICT", "Batch is already anchored");
-    if (batch.leaves.length === 0) throw new AppError("CONFLICT", "Batch is empty");
-    const root = merkleRoot(batch.leaves as Hex32[]);
-
-    const existing = await chain.getAnchor(batchId);
-    if (existing) {
-      if (existing.root.toLowerCase() !== root.toLowerCase() || existing.issuerChainId !== issuer.issuerChainId) {
-        throw new AppError("CONFLICT", "A different root is already anchored for this batch id");
-      }
-      return toBatch(await markAnchored(batchId, { root, anchoredAt: existing.anchoredAt, txHash: null }));
-    }
-
-    const active = await issuersRepo.findActiveKeyWithSecret(issuerId);
-    if (active?.keyId !== batch.keyId) {
-      // AnchorRegistry only accepts the active key: a batch signed by a retired key can never be anchored.
-      throw new AppError("CONFLICT", "The key that signed this batch is no longer active");
-    }
-    const tx = await chain.anchor(
-      openGovernanceKey(issuer.did, issuer.governanceKeyEnc),
-      batchId,
-      issuer.issuerChainId as Hex32,
-      batch.keyId as Hex32,
-      root,
-    );
-    return toBatch(await markAnchored(batchId, { root, anchoredAt: tx.blockTime, txHash: tx.txHash }));
+    return toBatch(await anchorLocked(issuer, batch));
   });
+}
+
+/** anchorBatch for a caller that already holds the issuer lock. */
+async function anchorLocked(issuer: issuersRepo.IssuerRow, batch: repo.BatchRow): Promise<repo.BatchRow> {
+  if (batch.status === "anchored") throw new AppError("CONFLICT", "Batch is already anchored");
+  if (batch.leaves.length === 0) throw new AppError("CONFLICT", "Batch is empty");
+  const batchId = batch.batchId as Hex32;
+  const root = merkleRoot(batch.leaves as Hex32[]);
+
+  const existing = await chain.getAnchor(batchId);
+  if (existing) {
+    if (existing.root.toLowerCase() !== root.toLowerCase() || existing.issuerChainId !== issuer.issuerChainId) {
+      throw new AppError("CONFLICT", "A different root is already anchored for this batch id");
+    }
+    return markAnchored(batchId, { root, anchoredAt: existing.anchoredAt, txHash: null });
+  }
+
+  const active = await issuersRepo.findActiveKeyWithSecret(issuer.id);
+  if (active?.keyId !== batch.keyId) {
+    // AnchorRegistry only accepts the active key: a batch signed by a retired key can never be anchored.
+    throw new AppError("CONFLICT", "The key that signed this batch is no longer active");
+  }
+  const tx = await chain.anchor(
+    openGovernanceKey(issuer.did, issuer.governanceKeyEnc),
+    batchId,
+    issuer.issuerChainId as Hex32,
+    batch.keyId as Hex32,
+    root,
+  );
+  return markAnchored(batchId, { root, anchoredAt: tx.blockTime, txHash: tx.txHash });
+}
+
+/**
+ * Anchors every non-empty open batch of `keyId` while it is still the active key. Called before a planned rotation:
+ * once the key is retired the chain refuses its anchors, and those holders' credentials could never verify.
+ * The caller holds the issuer lock. Never used on compromise: an open batch may then contain forgeries.
+ */
+export async function anchorOpenBatchesOfKey(issuer: issuersRepo.IssuerRow, keyId: string): Promise<repo.BatchRow[]> {
+  const open = (await repo.listBatchesByKey(keyId)).filter((b) => b.status === "open" && b.leaves.length > 0);
+  const anchored: repo.BatchRow[] = [];
+  for (const b of open) anchored.push(await anchorLocked(issuer, b));
+  return anchored;
 }
 
 async function markAnchored(batchId: string, anchor: { root: string; anchoredAt: Date; txHash: string | null }) {

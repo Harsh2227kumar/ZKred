@@ -100,14 +100,14 @@ export function useWalletSession() {
   const syncInbox = useCallback(async (): Promise<InboxResult> => {
     if (!wallet) return { added: 0, rejected: 0 };
     const offers = await listOffers(wallet.wallet_id, wallet.wallet_token);
-    const known = new Set(wallet.credentials.map((c) => c.offer_id));
-    const fresh = offers.filter((o) => !known.has(o.id));
+    const skip = new Set([...wallet.credentials.map((c) => c.offer_id), ...(wallet.rejected_offer_ids ?? [])]);
+    const fresh = offers.filter((o) => !skip.has(o.id));
     if (fresh.length === 0) return { added: 0, rejected: 0 };
 
     const issuers = (await unwrap(apiClient.GET('/issuers'))).items;
     const keyOf = new Map(issuers.flatMap((i: Issuer) => i.keys.map((k) => [k.key_id, k.public_key] as const)));
     const added: StoredCredential[] = [];
-    let rejected = 0;
+    const rejected: string[] = [];
     for (const offer of fresh) {
       try {
         const credential = await walletCrypto.decryptOffer(wallet.private_key_jwk, offer);
@@ -115,27 +115,41 @@ export function useWalletSession() {
         if (!publicKey || !(await credentialSignatureValid(credential, publicKey))) throw new Error('bad signature');
         added.push({ offer_id: offer.id, issuer_id: offer.issuer_id, received_at: new Date().toISOString(), credential });
       } catch {
-        rejected++;
+        rejected.push(offer.id);
       }
     }
-    if (added.length) {
-      await persist({ ...wallet, credentials: [...wallet.credentials, ...added] });
-      for (const c of added) if (!offers.find((o) => o.id === c.offer_id)?.claimed_at) await claimOffer(wallet.wallet_id, c.offer_id, wallet.wallet_token);
-      void qc.invalidateQueries({ queryKey: ['wallet-status'] });
-    }
-    return { added: added.length, rejected };
+    await persist({
+      ...wallet,
+      credentials: [...wallet.credentials, ...added],
+      rejected_offer_ids: [...(wallet.rejected_offer_ids ?? []), ...rejected],
+    });
+    for (const c of added) if (!offers.find((o) => o.id === c.offer_id)?.claimed_at) await claimOffer(wallet.wallet_id, c.offer_id, wallet.wallet_token);
+    if (added.length) void qc.invalidateQueries({ queryKey: ['wallet-status'] });
+    return { added: added.length, rejected: rejected.length };
   }, [wallet, persist, qc]);
 
   /** Breach recovery: asks the issuer to re-sign this credential with its new key; the new one arrives in the inbox. */
   const refreshCredential = useCallback(
     async (stored: StoredCredential) => {
       if (!wallet) return;
-      await requestReissue(stored.issuer_id, wallet.wallet_token, {
-        wallet_id: wallet.wallet_id,
-        old_credential: stored.credential as SignedCredential & { type: 'Degree' | 'GovernmentId' | 'MedicalLicense' },
+      if (!getPassphrase()) throw new Error('Unlock the wallet with your passphrase first');
+      try {
+        await requestReissue(stored.issuer_id, wallet.wallet_token, {
+          wallet_id: wallet.wallet_id,
+          old_credential: stored.credential as SignedCredential & { type: 'Degree' | 'GovernmentId' | 'MedicalLicense' },
+        });
+      } catch (err) {
+        // Refreshed earlier (e.g. from another browser): the fresh copy is already in the inbox; just retire this one.
+        const e = (err as { error?: { code?: string; message?: string } }).error;
+        if (!(e?.code === 'CONFLICT' && /already re-issued/.test(e.message ?? ''))) throw err;
+      }
+      const replacedAt = new Date().toISOString();
+      await persist({
+        ...wallet,
+        credentials: wallet.credentials.map((c) => (c.offer_id === stored.offer_id ? { ...c, replaced_at: replacedAt } : c)),
       });
     },
-    [wallet],
+    [wallet, persist],
   );
 
   const removeCredential = useCallback(

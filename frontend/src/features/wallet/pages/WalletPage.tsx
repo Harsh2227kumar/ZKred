@@ -61,7 +61,7 @@ export const WalletPage: React.FC = () => {
       try {
         const r = await syncInbox();
         if (r.added) toast.success(`${r.added} new credential${r.added > 1 ? 's' : ''} verified and saved`);
-        if (r.rejected) toast.error(`${r.rejected} offer(s) failed signature verification and were not saved`);
+        if (r.rejected) toast.error(`${r.rejected} offer(s) failed signature verification and were not saved (they will not be retried)`);
         if (!quiet && !r.added && !r.rejected) toast.info('No new offers');
       } catch (err) {
         toast.error(toUserMessage(err));
@@ -118,7 +118,14 @@ export const WalletPage: React.FC = () => {
                 <div className="space-y-4">
                   {statuses.error && <p className="text-xs text-rose-500">Could not load credential status: {toUserMessage(statuses.error)}</p>}
                   {wallet.credentials.map((c) => (
-                    <CredentialCard key={c.offer_id} stored={c} status={statuses.data?.[c.offer_id]} onRefresh={() => session.refreshCredential(c)} />
+                    <CredentialCard
+                      key={c.offer_id}
+                      stored={c}
+                      status={statuses.data?.[c.offer_id]}
+                      canRefresh={unlocked}
+                      onRefresh={() => session.refreshCredential(c)}
+                      onRemove={() => session.removeCredential(c.offer_id)}
+                    />
                   ))}
                 </div>
               )}

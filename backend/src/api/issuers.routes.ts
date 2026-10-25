@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { reportCompromise } from "../core/breach";
-import { createIssuer, getIssuer, listIssuers, rotateIssuerKey } from "../core/issuers";
+import { createIssuer, getIssuer, listIssuers } from "../core/issuers";
+import { rotateIssuerKey } from "../core/key-rotation";
 import { CompromiseCreate, IssuerCreate, IssuerKeyParams, IssuerParams } from "../schemas/issuers.schema";
 import { requireAdmin } from "./middleware/auth";
 

@@ -15,6 +15,8 @@ export interface StoredCredential {
   issuer_id: string;
   received_at: string;
   credential: SignedCredential;
+  /** Set when a refreshed copy was requested (breach recovery); this copy is then never offered to verifiers. */
+  replaced_at?: string;
 }
 
 export interface WalletData {
@@ -23,6 +25,8 @@ export interface WalletData {
   display_name: string;
   private_key_jwk: JsonWebKey;
   credentials: StoredCredential[];
+  /** Offers that failed decryption or signature checks: skipped on later inbox checks instead of re-reported. */
+  rejected_offer_ids?: string[];
 }
 
 export async function loadWallet(): Promise<WalletData | null> {

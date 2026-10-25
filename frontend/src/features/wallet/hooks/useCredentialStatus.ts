@@ -35,7 +35,8 @@ async function loadStatuses(creds: StoredCredential[]): Promise<Record<string, C
     else if (list && list.hash.toLowerCase() !== list.onchain_hash.toLowerCase())
       out[c.offer_id] = { kind: 'invalid', issuer, reason: 'Revocation list does not match the chain' };
     else if (list && isRevokedIn(list.encoded, Number(v.status_index))) out[c.offer_id] = { kind: 'revoked', issuer };
-    else if (!batch?.anchored_at) out[c.offer_id] = { kind: 'pending_anchor', issuer };
+    // Never anchored: fine while its key is active; once the key is retired or compromised it never will be.
+    else if (!batch?.anchored_at) out[c.offer_id] = { kind: key.status === 'active' ? 'pending_anchor' : 'needs_refresh', issuer };
     else if (key.status === 'compromised' && key.compromised_from && new Date(batch.anchored_at) >= new Date(key.compromised_from))
       out[c.offer_id] = { kind: 'needs_refresh', issuer };
     else out[c.offer_id] = { kind: 'active', issuer };

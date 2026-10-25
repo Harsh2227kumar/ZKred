@@ -37,6 +37,7 @@
 | 410 | `REQUEST_EXPIRED` | Presentation request past `expires_at` |
 | 422 | `VALIDATION_ERROR` | Field validation failed (`details` per field) |
 | 422 | `POLICY_AMBIGUOUS` | AI couldn't build a safe policy; `details.questions: string[]` |
+| 429 | `RATE_LIMITED` | Too many parse / request-create / presentation calls from one IP; `Retry-After` header + `details.retry_after_seconds` |
 | 501 | `NOT_IMPLEMENTED` | Endpoint exists, logic pending |
 | 502 | `AI_UNAVAILABLE` | Bedrock call failed / timed out |
 | 502 | `AI_BAD_OUTPUT` | Claude output failed Zod validation after 1 retry |
@@ -154,6 +155,7 @@ Issuer
   issuer_chain_id: Hex32                         # keccak256(did)
   governance_address: address
   accredited: boolean                            # read from chain
+  accredited_as_of: datetime                     # when `accredited` was read (cached ≤ ISSUER_CACHE_TTL_MS; older if the RPC is down)
   keys: IssuerKey[]
   created_at: datetime
 
@@ -481,6 +483,11 @@ Code reads these **only** through `backend/src/config.ts` / `frontend/src/config
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | one of these | IAM keys (or EC2 instance role: none needed) | auth option B |
 | `AI_TIMEOUT_MS` | no (`30000`) | int | |
 | `AI_MAX_TOKENS` | no (`4000`) | int | |
+| `AI_CONSENT_TIMEOUT_MS` | no (`8000`) | int | consent text timeout (no retry) before the template is used |
+| `RATE_LIMIT_WINDOW_MS` | no (`60000`) | int | rate-limit window per client IP |
+| `RATE_LIMIT_AI_MAX` | no (`10`) | int | parse + request-create calls per window per IP (each calls Bedrock) |
+| `RATE_LIMIT_VERIFY_MAX` | no (`30`) | int | presentation submissions per window per IP |
+| `ISSUER_CACHE_TTL_MS` | no (`30000`) | int | reuse on-chain issuer reads in `GET /issuers*` (verification never uses the cache) |
 
 ### Frontend (`frontend/.env`)
 
@@ -533,3 +540,4 @@ Code reads these **only** through `backend/src/config.ts` / `frontend/src/config
 | V1.2-H1 | `POST .../credentials/{id}/revoke` live; second revoke → 409. If a previous attempt mined the tx but crashed, the DB is re-synced from the chain hash | No | |
 | V1.2-H2 | `POST .../keys/{key_id}/compromise` live: cutoff = latest block time − window (whole seconds); an active key is auto-rotated in the same call; re-reporting keeps the earlier on-chain cutoff. `POST /issuers/{id}/reissue` live: wallet token must open `body.wallet_id` (else 403); not in the issuer's records / other wallet / revoked / bad signature → 403 `FORBIDDEN`; already re-issued → 409. `CompromiseCreate.window_seconds` ≤ 10 years | No | |
 | V1.2-H3 | `/attack/*` live (admin token + `DEMO_MODE`). `forge` → `anchor_tx_hash: null` when the stolen key can no longer anchor (forgeries then fail `BATCH_NOT_ANCHORED`). `by_code` counts rejections only. `verify-forged` checks with an accredited-Degree, not-revoked policy built from the layout | No (nullable field) | |
+| V1.2-H4 | Review fixes: `POST .../keys/rotate` first anchors the old key's non-empty open batches (they could never be anchored after rotation). `POST /issuers/{id}/reissue` only for credentials no verifier accepts any more (anchored at/after the key's compromise cutoff, or never anchored and the key is no longer active); otherwise 409. New error `429 RATE_LIMITED` on parse, request create and presentations. `Issuer.accredited_as_of` (additive): `GET /issuers*` caches chain reads for `ISSUER_CACHE_TTL_MS` and serves the last read if the RPC is down (502 only when there is none). Consent text: `AI_CONSENT_TIMEOUT_MS`, no retry. New optional env vars `AI_CONSENT_TIMEOUT_MS`, `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_AI_MAX`, `RATE_LIMIT_VERIFY_MAX`, `ISSUER_CACHE_TTL_MS` | No (additive; reissue tightened) | |

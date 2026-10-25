@@ -62,7 +62,8 @@ function toolSchema() {
 
 type Message = Parameters<typeof bedrock.messages.create>[0]["messages"][number];
 
-async function callModel(system: string, messages: Message[], tool: boolean) {
+/** `request` overrides the client defaults (AI_TIMEOUT_MS, 1 retry) for one call. */
+async function callModel(system: string, messages: Message[], tool: boolean, request?: { timeout: number; maxRetries: number }) {
   try {
     return await bedrock.messages.create({
       model: config.BEDROCK_MODEL_ID,
@@ -75,7 +76,7 @@ async function callModel(system: string, messages: Message[], tool: boolean) {
             tool_choice: { type: "tool" as const, name: TOOL_NAME },
           }
         : {}),
-    });
+    }, request);
   } catch {
     throw new AiError("AI_UNAVAILABLE", "The AI service is unavailable; build the policy manually");
   }
@@ -127,7 +128,10 @@ export async function policyFromText(text: string): Promise<ParseResult> {
 /** Holder-facing consent text for `policy`. Throws AiError("AI_UNAVAILABLE") so callers can fall back to the template. */
 export async function consentSummary(verifierName: string, policy: PresentationPolicy): Promise<string> {
   const system = fill(CONSENT_PROMPT, { VERIFIER: verifierName, LAYOUTS: layoutsText(), POLICY: JSON.stringify(policy, null, 2) });
-  const res = await callModel(system, [{ role: "user", content: "Write the consent text." }], false);
+  const res = await callModel(system, [{ role: "user", content: "Write the consent text." }], false, {
+    timeout: config.AI_CONSENT_TIMEOUT_MS,
+    maxRetries: 0,
+  });
   const textBlock = res.content.find((b) => b.type === "text");
   const out = textBlock && textBlock.type === "text" ? textBlock.text.trim() : "";
   if (!out) throw new AiError("AI_BAD_OUTPUT", "The AI returned no consent text");
