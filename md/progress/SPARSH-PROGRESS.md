@@ -15,8 +15,8 @@
 
 | Task ID | Task | Status | PR |
 |---|---|---|---|
-| V0-S1 | Frontend scaffold | TODO | |
-| V0-S2 | docker-compose + Dockerfiles + Caddyfile + .env.examples | TODO | |
+| V0-S1 | Frontend scaffold | DONE | #10 |
+| V0-S2 | docker-compose + Dockerfiles + Caddyfile + .env.examples | DONE | |
 | V0-S3 | GitHub repo settings, CODEOWNERS handles | TODO | |
 | V0-S4 | EC2 deploy hello-world | TODO | |
 | V0-S5 | Bedrock model access + credentials | TODO | |
@@ -45,7 +45,8 @@
 
 Format: `HH:MM | TASK-ID | STARTED/DONE/BLOCKED/HANDOFF | what happened | files`
 
-- HH:MM | V0-S1 | STARTED |
+- 18:50 | V0-S1 | DONE | Vite React 19 + TS + Tailwind v4 frontend scaffold; PR #10 | frontend/, pnpm-lock.yaml
+- 19:25 | V0-S2 | DONE | Container infra: docker-compose.yml (db, backend, frontend, caddy); backend.Dockerfile; frontend.Dockerfile; Caddyfile; all .env.example files; docker compose config valid; check-hardcoded.sh OK | docker-compose.yml, infra/, *.env.example, docs/
 
 ## Notes for the pitch
 
