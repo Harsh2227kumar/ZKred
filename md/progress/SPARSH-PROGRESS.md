@@ -24,7 +24,7 @@
 | V0-S6 | gen:api (openapi-typescript → src/api/types.ts) | DONE | #16 |
 | V1-S1 | Issuer console (real API & Base Sepolia) | DONE | #26 |
 | V1-S2 | Student Wallet (setup, inbox, credentials, backup) | DONE | #27 |
-| V1-S3 | Verifier portal (verifier create, manual policy builder, polling) | DONE | PR #28 (pending push) |
+| V1-S3 | Verifier portal (verifier create, manual policy builder, polling) | DONE | #28 |
 
 ## Blocked on
 
