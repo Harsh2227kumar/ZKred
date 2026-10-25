@@ -1,28 +1,10 @@
-// Public API members listed in CONTRACTS §4.1 whose implementation lands in V1.1-H1 (age proof, Merkle, status list,
+// Public API members listed in CONTRACTS §4.1 whose implementation lands in V1.1-H1 (Merkle, status list,
 // buildPresentation). They throw ZkCoreError("NOT_IMPLEMENTED") so nothing can silently "succeed" before then.
 import { notImplemented } from "./errors";
 import type { Presentation, PresentationPolicy } from "./policy";
 import type { Hex32, SignedCredential, ZkArtifacts } from "./types";
 
 const TASK = "V1.1";
-
-export async function dobCommitment(_dobDays: bigint, _salt: bigint): Promise<string> {
-  return notImplemented("dobCommitment", TASK);
-}
-
-export async function proveAgeGte(_i: {
-  dobDays: bigint;
-  salt: bigint;
-  todayDays: number;
-  minAgeYears: number;
-  artifacts: ZkArtifacts;
-}): Promise<{ proof: object; publicSignals: string[] }> {
-  return notImplemented("proveAgeGte", TASK);
-}
-
-export async function verifyAgeGte(_i: { proof: object; publicSignals: string[]; vkey: object }): Promise<boolean> {
-  return notImplemented("verifyAgeGte", TASK);
-}
 
 export function merkleRoot(_leaves: Hex32[]): Hex32 {
   return notImplemented("merkleRoot", TASK);

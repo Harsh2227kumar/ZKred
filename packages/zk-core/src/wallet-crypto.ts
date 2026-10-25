@@ -5,8 +5,21 @@ import { base64urlToBytes, bytesToBase64url, bytesToUtf8, utf8ToBytes } from "./
 import { ZkCoreError } from "./errors";
 import type { SignedCredential } from "./types";
 
+// Local type names: consumers compile this source with or without the DOM lib (the backend has only @types/node).
+type KeyUsage = "encrypt" | "decrypt";
+/** EC private key in JWK form, as returned by generateWalletKeyPair. */
+export interface JsonWebKey {
+  kty?: string;
+  crv?: string;
+  x?: string;
+  y?: string;
+  d?: string;
+  ext?: boolean;
+  key_ops?: string[];
+}
+
 const OFFER_HKDF_INFO = utf8ToBytes("zkred:offer:v1");
-const ECDH_PARAMS: EcKeyImportParams = { name: "ECDH", namedCurve: "P-256" };
+const ECDH_PARAMS = { name: "ECDH", namedCurve: "P-256" } as const;
 const IV_BYTES = 12;
 const SALT_BYTES = 16;
 

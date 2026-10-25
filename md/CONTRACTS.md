@@ -315,7 +315,7 @@ export function verifyDisclosure(i: { publicKey: Uint8Array; type: CredentialTyp
 // Age ZK (Circom age_gte): proves Poseidon(dob_days, salt) == dob_commitment ∧ dob_days ≤ cutoff_days.
 // Dates = whole days since 1900-01-01 UTC (16-bit). cutoff_days = todayDays − minAgeYears calendar years (computed in zk-core).
 // publicSignals = [dob_commitment, cutoff_days]. Verifier accepts if cutoff_days ≤ its own cutoff + AGE_PROOF_MAX_SKEW_DAYS.
-export function dobCommitment(dobDays: bigint, salt: bigint): Promise<string>;              // circomlibjs Poseidon
+export function dobCommitment(dobDays: bigint, salt: bigint): Promise<string>;              // circomlib Poseidon (computed with poseidon-lite: same constants, browser-safe)
 export function proveAgeGte(i: { dobDays: bigint; salt: bigint; todayDays: number; minAgeYears: number; artifacts: ZkArtifacts }): Promise<{ proof: object; publicSignals: string[] }>;
 export function verifyAgeGte(i: { proof: object; publicSignals: string[]; vkey: object }): Promise<boolean>;
 
@@ -516,4 +516,5 @@ Code reads these **only** through `backend/src/config.ts` / `frontend/src/config
 | H0 | Initial draft | — | |
 | H2 | Initial freeze | — | |
 | V0-H4 | Age circuit public signals are `[dob_commitment, cutoff_days]` (exact calendar cutoff) instead of `[dob_commitment, today_days, min_age_days]`; `proveAgeGte` signature unchanged | No (zk-core not built yet) | |
+| V0-H5 | zk-core additive exports: `CREDENTIAL_TYPES`, `MANDATORY_REVEAL_MAX_INDEX`, `ISSUER_KINDS`, `PREDICATE_TYPES`, `PresentationRequirement`, `PresentationItem`, `dateToDays`, `ageCutoffDays`, `randomDobSalt`. Poseidon via poseidon-lite (circomlibjs's entry point crashes browser bundles; outputs cross-checked in tests). `verifyAgeGte` checks the Groth16 proof only; the verifier compares `cutoff_days` and `dob_commitment` itself | No (additive) | |
 | V0-H2 | `CredentialSchema.fields[].source` added (meta / claim / derived) so the issue form renders only claim fields | No (additive) | |

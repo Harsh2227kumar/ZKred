@@ -1,3 +1,4 @@
+/// <reference path="./types/bbs-signatures.d.ts" />
 // BBS signatures over the frozen credential layouts. The ONLY file that imports @digitalbazaar/bbs-signatures.
 // Ciphersuite: BLS12-381-SHA-256 (IETF draft-irtf-cfrg-bbs-signatures). Header binds credential type + layout version;
 // presentation header = the verifier's nonce.
