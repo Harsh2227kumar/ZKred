@@ -21,8 +21,18 @@ docker compose build
 echo "==> [2/3] Launching containers in background..."
 docker compose up -d --remove-orphans
 
-echo "==> [3/3] Verifying container health..."
-sleep 5
+echo "==> [3/3] Waiting for the API health check..."
+health=""
+for _ in $(seq 1 30); do
+  health=$(docker compose exec -T backend wget -qO- "http://localhost:8080/api/v1/health" 2>/dev/null || true)
+  [ -n "$health" ] && break
+  sleep 2
+done
 docker compose ps
 
+if [ -z "$health" ]; then
+  echo "Error: backend did not answer /api/v1/health. Check: docker compose logs backend"
+  exit 1
+fi
+echo "Health: $health"
 echo "==> Deployment complete!"

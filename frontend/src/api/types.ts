@@ -256,15 +256,3 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export type operations = Record<string, never>;
-
-// Schema Type Aliases
-export type HealthResponse = components["schemas"]["Health"];
-export type ErrorResponse = components["schemas"]["ErrorResponse"];
-export type EnumsResponse = components["schemas"]["Enums"];
-export type EnumOption = components["schemas"]["EnumOption"];
-export type ChainInfoResponse = components["schemas"]["ChainInfo"];
-export type CredentialSchemasResponse = components["schemas"]["CredentialSchemaList"];
-export type CredentialSchema = components["schemas"]["CredentialSchema"];
-export type CredentialSchemaField = components["schemas"]["CredentialSchemaField"];
-export type ApiError = ErrorResponse;
-

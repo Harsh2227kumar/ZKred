@@ -3,12 +3,22 @@
 
 import createClient from 'openapi-fetch';
 import { config } from '@/config';
-import type { ApiError } from './types';
+import type { paths } from './types';
+import type { ApiError } from './schemas';
 
-// Create the openapi-fetch client pointing to config.apiBaseUrl
-export const apiClient = createClient<any>({
+// Typed against the generated OpenAPI paths, so calling an endpoint the backend doesn't serve is a compile error.
+export const apiClient = createClient<paths>({
   baseUrl: config.apiBaseUrl,
 });
+
+/**
+ * For screens built ahead of their backend task: rejects with the standard 501 shape (CONTRACTS §2)
+ * so the page shows a real error state instead of calling an endpoint that doesn't exist yet.
+ */
+export function pendingEndpoint<T>(task: string): Promise<T> {
+  const error: ApiError = { error: { code: 'NOT_IMPLEMENTED', message: `Arrives with ${task}` } };
+  return Promise.reject(error);
+}
 
 /**
  * Maps standard API error shapes (md/CONTRACTS.md §2) to friendly user messages.

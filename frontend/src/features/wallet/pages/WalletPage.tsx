@@ -1,22 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Wallet, ShieldCheck, Download, Inbox, KeyRound } from 'lucide-react';
 import { EmptyState } from '@/components/common/EmptyState';
 import { Hex } from '@/components/common/Hex';
 
 export const WalletPage: React.FC = () => {
-  const [hasWallet, setHasWallet] = useState(false);
-  const [walletId, setWalletId] = useState<string | null>(null);
+  // Wallet creation (POST /wallets + zk-core walletCrypto + IndexedDB) lands in V1-S2; until then there is no wallet.
+  const [hasWallet] = useState(false);
+  const [walletId] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string>('');
-
-  useEffect(() => {
-    const storedId = localStorage.getItem('zkred_wallet_id');
-    const storedName = localStorage.getItem('zkred_wallet_display_name');
-    if (storedId) {
-      setHasWallet(true);
-      setWalletId(storedId);
-      setDisplayName(storedName || 'Holder');
-    }
-  }, []);
 
   return (
     <div className="space-y-6">
@@ -57,7 +48,7 @@ export const WalletPage: React.FC = () => {
               <label className="text-xs font-medium text-foreground block mb-1">Display Name</label>
               <input
                 type="text"
-                placeholder="e.g. Asha Sharma"
+                placeholder="Name issuers will look you up by"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-violet-500 focus:outline-hidden"
@@ -75,16 +66,10 @@ export const WalletPage: React.FC = () => {
 
             <button
               type="button"
-              onClick={() => {
-                const dummyId = '0x' + Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
-                localStorage.setItem('zkred_wallet_id', dummyId);
-                localStorage.setItem('zkred_wallet_display_name', displayName || 'Asha');
-                setWalletId(dummyId);
-                setHasWallet(true);
-              }}
-              className="w-full py-2.5 rounded-lg text-sm font-semibold bg-violet-600 text-white hover:bg-violet-700 transition-colors shadow-xs cursor-pointer"
+              disabled
+              className="w-full py-2.5 rounded-lg text-sm font-semibold bg-violet-600/40 text-white cursor-not-allowed shadow-xs"
             >
-              Create Browser Wallet
+              Create Browser Wallet (arrives in V1)
             </button>
           </div>
         </div>

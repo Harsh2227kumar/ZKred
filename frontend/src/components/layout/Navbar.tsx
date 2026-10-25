@@ -85,7 +85,7 @@ export const Navbar: React.FC = () => {
               <span className={`absolute w-3.5 h-3.5 rounded-full ${getStatusColor()} opacity-40 animate-ping`} />
             </div>
             <span className="text-xs hidden sm:inline-block font-sans font-medium text-foreground/80">
-              {isLoading ? 'Checking...' : isError || !health ? 'Offline' : 'Online'}
+              {isLoading ? 'Checking...' : isError || !health ? 'Offline' : health.status === 'ok' ? 'Online' : 'Degraded'}
             </span>
           </div>
         </div>

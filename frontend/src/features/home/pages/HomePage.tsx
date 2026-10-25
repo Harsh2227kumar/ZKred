@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { ShieldCheck, Building2, Wallet, CheckCircle2, Flame, ArrowRight, Lock, KeyRound, Cpu } from 'lucide-react';
+import { ChainName } from '@/components/common/ChainName';
 
 export const HomePage: React.FC = () => {
   return (
@@ -18,7 +19,7 @@ export const HomePage: React.FC = () => {
           </span>
         </h1>
         <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
-          Zero-Knowledge portable credentials backed by BBS+ signatures on Base Sepolia.
+          Zero-Knowledge portable credentials backed by BBS+ signatures on <ChainName />.
           Survive a stolen university signing key without hurting a single honest graduate.
         </p>
       </section>
@@ -130,7 +131,7 @@ export const HomePage: React.FC = () => {
           </div>
           <div>
             <h4 className="text-sm font-semibold text-foreground">Chain Time &gt; Claimed Time</h4>
-            <p className="text-xs text-muted-foreground mt-0.5">Immutable block timestamps on Base Sepolia guarantee anti-backdating.</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Immutable block timestamps on <ChainName /> guarantee anti-backdating.</p>
           </div>
         </div>
       </div>

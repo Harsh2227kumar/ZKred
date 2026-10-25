@@ -2,12 +2,13 @@ import React, { useState } from 'react';
 import { useParams, NavLink } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Key, PlusCircle, FileText, Layers } from 'lucide-react';
-import { apiClient } from '@/api/client';
+import { ChainName } from '@/components/common/ChainName';
+import { pendingEndpoint } from '@/api/client';
 import { Loading } from '@/components/common/Loading';
 import { ErrorState } from '@/components/common/ErrorState';
 import { EmptyState } from '@/components/common/EmptyState';
 import { Hex } from '@/components/common/Hex';
-import type { Issuer } from '@/api/types';
+import type { Issuer } from '@/api/schemas';
 
 export const IssuerDetailPage: React.FC = () => {
   const { issuerId } = useParams<{ issuerId: string }>();
@@ -15,14 +16,10 @@ export const IssuerDetailPage: React.FC = () => {
 
   const { data: issuer, isLoading, error, refetch } = useQuery<Issuer>({
     queryKey: ['issuer', issuerId],
-    queryFn: async () => {
-      const { data, error } = await apiClient.GET('/issuers/{id}', {
-        params: { path: { id: issuerId! } },
-      });
-      if (error) throw error;
-      return data;
-    },
+    // GET /issuers/{id} is built in V1-H1; switch to apiClient.GET('/issuers/{id}') then.
+    queryFn: () => pendingEndpoint<Issuer>('V1-H1'),
     enabled: Boolean(issuerId),
+    retry: false,
   });
 
   if (isLoading) return <Loading label="Loading issuer details..." />;
@@ -65,7 +62,7 @@ export const IssuerDetailPage: React.FC = () => {
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => setActiveTab(tab.id as typeof activeTab)}
               className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all cursor-pointer ${
                 isActive
                   ? 'border-primary text-primary font-semibold'
@@ -150,7 +147,7 @@ export const IssuerDetailPage: React.FC = () => {
         <div className="p-8 rounded-xl border border-dashed border-border text-center space-y-3">
           <h4 className="font-semibold text-foreground">Merkle Batches & On-Chain Anchors</h4>
           <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            Shows batch Merkle roots, leaf counts, and Base Sepolia anchor transactions.
+            Shows batch Merkle roots, leaf counts, and <ChainName /> anchor transactions.
           </p>
         </div>
       )}

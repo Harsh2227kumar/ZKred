@@ -1,5 +1,6 @@
 import React from 'react';
 import { Flame, ShieldAlert, AlertTriangle, ShieldCheck, Play } from 'lucide-react';
+import { ChainName } from '@/components/common/ChainName';
 
 export const AttackConsolePage: React.FC = () => {
 
@@ -88,7 +89,7 @@ export const AttackConsolePage: React.FC = () => {
           <div className="p-4 rounded-xl border border-border bg-muted/20 space-y-2">
             <span className="text-[11px] font-mono text-muted-foreground">STEP 2</span>
             <h4 className="text-sm font-semibold text-foreground">2. Forge 200 Credentials</h4>
-            <p className="text-xs text-muted-foreground">Signs 200 fake MBBS certificates and anchors them into an open batch on Base Sepolia.</p>
+            <p className="text-xs text-muted-foreground">Signs 200 fake MBBS certificates and anchors them into an open batch on <ChainName />.</p>
           </div>
 
           <div className="p-4 rounded-xl border border-border bg-muted/20 space-y-2">

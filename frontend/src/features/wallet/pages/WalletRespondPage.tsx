@@ -47,10 +47,7 @@ export const WalletRespondPage: React.FC = () => {
             <p className="text-xs text-muted-foreground">
               These exact values will be visible to the verifier (BBS+ selective disclosure):
             </p>
-            <ul className="text-xs font-mono space-y-1 list-disc list-inside text-foreground">
-              <li>Degree: MBBS</li>
-              <li>Medical License Status: Active</li>
-            </ul>
+            <p className="text-xs font-mono text-muted-foreground">Filled from the request policy (V1-S5).</p>
           </div>
 
           <div className="p-4 rounded-xl border border-violet-500/20 bg-violet-500/5 space-y-2">
@@ -61,9 +58,7 @@ export const WalletRespondPage: React.FC = () => {
             <p className="text-xs text-muted-foreground">
               The verifier only receives a mathematical proof that the condition is met. The underlying data is never sent:
             </p>
-            <ul className="text-xs font-mono space-y-1 list-disc list-inside text-foreground">
-              <li>Age ≥ 21 (Date of Birth remains secret)</li>
-            </ul>
+            <p className="text-xs font-mono text-muted-foreground">Filled from the request policy (V1-S5).</p>
           </div>
 
           <div className="p-4 rounded-xl border border-border/60 bg-muted/40 space-y-2">
@@ -74,9 +69,7 @@ export const WalletRespondPage: React.FC = () => {
             <p className="text-xs text-muted-foreground">
               These fields never leave your browser:
             </p>
-            <ul className="text-xs font-mono space-y-1 list-disc list-inside text-muted-foreground">
-              <li>Full Name, Exact Date of Birth, Residential Address</li>
-            </ul>
+            <p className="text-xs font-mono text-muted-foreground">Filled from the request policy (V1-S5).</p>
           </div>
         </div>
 

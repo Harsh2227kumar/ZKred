@@ -2,12 +2,13 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { NavLink } from 'react-router-dom';
 import { Building2, Key, ArrowRight, ShieldCheck, ShieldAlert } from 'lucide-react';
-import { apiClient } from '@/api/client';
+import { ChainName } from '@/components/common/ChainName';
+import { pendingEndpoint } from '@/api/client';
 import { Loading } from '@/components/common/Loading';
 import { EmptyState } from '@/components/common/EmptyState';
 import { ErrorState } from '@/components/common/ErrorState';
 import { Hex } from '@/components/common/Hex';
-import type { IssuersListResponse, Issuer } from '@/api/types';
+import type { IssuersListResponse, Issuer } from '@/api/schemas';
 
 export const IssuerListPage: React.FC = () => {
   const [adminToken, setAdminToken] = useState(() => sessionStorage.getItem('zkred_issuer_admin_token') || '');
@@ -15,12 +16,9 @@ export const IssuerListPage: React.FC = () => {
 
   const { data, isLoading, error, refetch } = useQuery<IssuersListResponse>({
     queryKey: ['issuers'],
-    queryFn: async () => {
-      const { data, error } = await apiClient.GET('/issuers', {});
-      if (error) throw error;
-      return data as IssuersListResponse;
-    },
-    retry: 1,
+    // GET /issuers (admin token) is built in V1-H1; switch to apiClient.GET('/issuers') then.
+    queryFn: () => pendingEndpoint<IssuersListResponse>('V1-H1'),
+    retry: false,
   });
 
   const saveToken = (token: string) => {
@@ -39,7 +37,7 @@ export const IssuerListPage: React.FC = () => {
             <h1 className="text-2xl font-bold tracking-tight text-foreground">Issuer Console</h1>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            Registered certificate authorities and issuance pipelines on Base Sepolia.
+            Registered certificate authorities and issuance pipelines on <ChainName />.
           </p>
         </div>
 

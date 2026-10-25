@@ -1,17 +1,17 @@
 import { useParams, NavLink } from 'react-router-dom';
 import { ArrowLeft, Clock, ShieldCheck, Lock } from 'lucide-react';
 import { Hex } from '@/components/common/Hex';
+import { useEnums } from '@/api/queries/meta';
 
 export const RequestDetailPage: React.FC = () => {
   const { requestId } = useParams<{ requestId: string }>();
+  const { data: enums } = useEnums();
 
-  // 4 Nodes of the Evaluation Chain
-  const evalChainNodes = [
-    { id: 1, title: '1. Issuer Signature', desc: 'BBS+ BLS12-381 key epoch validity', status: 'pending' },
-    { id: 2, title: '2. ZK Range Claim', desc: 'Circom Groth16 proof (Age ≥ 21)', status: 'pending' },
-    { id: 3, title: '3. Revocation Status', desc: 'Bitstring herd-privacy status list', status: 'pending' },
-    { id: 4, title: '4. Key-Epoch / Anchor', desc: 'Base Sepolia batch Merkle root check', status: 'pending' },
-  ];
+  // Evaluation chain steps come from GET /meta/enums (verification_steps), in contract order.
+  const evalChainNodes = (enums?.verification_steps ?? []).map((step, i) => ({
+    id: i + 1,
+    title: `${i + 1}. ${step.label}`,
+  }));
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -53,7 +53,6 @@ export const RequestDetailPage: React.FC = () => {
               <div>
                 <span className="text-[11px] font-mono text-muted-foreground block mb-1">STAGE {node.id}</span>
                 <h4 className="text-sm font-semibold text-foreground">{node.title}</h4>
-                <p className="text-xs text-muted-foreground mt-1">{node.desc}</p>
               </div>
               <div className="pt-3 border-t border-border/40 flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Clock className="w-3 h-3 text-muted-foreground" />

@@ -2,9 +2,7 @@ import { useState } from 'react';
 import { CheckCircle2, Sparkles, Send } from 'lucide-react';
 
 export const VerifierPage: React.FC = () => {
-  const [naturalLanguage, setNaturalLanguage] = useState(
-    'Need a medical degree from an accredited university, age over 21, and an active medical license. Do not collect DOB, name or address.'
-  );
+  const [naturalLanguage, setNaturalLanguage] = useState('');
 
   return (
     <div className="space-y-6">

@@ -7,7 +7,8 @@
 FROM node:22-alpine AS builder
 
 WORKDIR /app
-RUN npm install -g pnpm@10
+# Same pnpm as the root package.json "packageManager" field.
+RUN npm install -g pnpm@12.15.0
 
 # Copy root monorepo manifests
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
@@ -23,7 +24,7 @@ RUN pnpm install --frozen-lockfile
 FROM node:22-alpine AS runner
 
 WORKDIR /app
-RUN npm install -g pnpm@10
+RUN npm install -g pnpm@12.15.0
 
 ENV NODE_ENV=production
 

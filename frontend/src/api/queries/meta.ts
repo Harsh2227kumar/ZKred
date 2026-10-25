@@ -1,7 +1,7 @@
 // frontend/src/api/queries/meta.ts
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/api/client';
-import type { HealthResponse, ChainInfoResponse, EnumsResponse, CredentialSchemasResponse } from '@/api/types';
+import type { HealthResponse, ChainInfoResponse, EnumsResponse, CredentialSchemasResponse } from '@/api/schemas';
 
 export function useHealth() {
   return useQuery<HealthResponse>({
