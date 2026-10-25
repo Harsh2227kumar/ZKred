@@ -1,89 +1,124 @@
-import React from 'react';
+// frontend/src/features/wallet/pages/WalletRespondPage.tsx
+import React, { useState, useEffect } from 'react';
 import { useSearchParams, NavLink } from 'react-router-dom';
-import { ArrowLeft, Shield, Eye, Lock, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Shield, AlertCircle, Loader2 } from 'lucide-react';
+import { usePresentationRequest } from '@/api/queries/verifiers';
+import { getStoredCredentials } from '@/lib/wallet-store';
+import type { SignedCredential } from '@/lib/wallet-crypto';
+import { ConsentScreen } from '../components/ConsentScreen';
 import { EmptyState } from '@/components/common/EmptyState';
 
 export const WalletRespondPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const requestId = searchParams.get('request');
 
+  const [localCredentials, setLocalCredentials] = useState<SignedCredential[]>([]);
+  const [isLoadingStorage, setIsLoadingStorage] = useState(true);
+
+  const {
+    data: request,
+    isLoading: isLoadingRequest,
+    error: requestError,
+  } = usePresentationRequest(requestId || undefined);
+
+  useEffect(() => {
+    let mounted = true;
+    getStoredCredentials()
+      .then((creds) => {
+        if (mounted) {
+          setLocalCredentials(creds);
+          setIsLoadingStorage(false);
+        }
+      })
+      .catch((err) => {
+        console.warn('Failed to load local wallet credentials:', err);
+        if (mounted) setIsLoadingStorage(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   if (!requestId) {
     return (
-      <EmptyState
-        title="Missing Verification Request"
-        description="Please scan or open a valid credential verification request link."
-        action={
-          <NavLink to="/wallet" className="text-xs text-[#79bab6] font-medium hover:underline">
-            Go to My Student Wallet
-          </NavLink>
-        }
-      />
+      <div className="max-w-2xl mx-auto py-12">
+        <EmptyState
+          title="Missing Verification Request"
+          description="Please scan or open a valid zero-knowledge credential verification request link."
+          action={
+            <NavLink
+              to="/wallet"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-[#06838d] hover:bg-[#046168] transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" /> Back to My Wallet
+            </NavLink>
+          }
+        />
+      </div>
+    );
+  }
+
+  if (isLoadingRequest || isLoadingStorage) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-3">
+        <Loader2 className="w-8 h-8 text-[#79bab6] animate-spin" />
+        <p className="text-sm text-[#8ea5a8]">Retrieving presentation policy specification...</p>
+      </div>
+    );
+  }
+
+  if (requestError || !request) {
+    return (
+      <div className="max-w-2xl mx-auto space-y-4 py-8">
+        <div className="p-6 rounded-3xl border border-[#fb7185]/30 bg-[#fb7185]/10 space-y-3 text-center">
+          <AlertCircle className="w-8 h-8 text-[#fb7185] mx-auto" />
+          <h2 className="text-base font-semibold text-[#f0f7f7]">Verification Request Not Found</h2>
+          <p className="text-xs text-[#8ea5a8]">
+            This presentation request link may have expired or the verifier request ID is invalid.
+          </p>
+          <div className="pt-2">
+            <NavLink
+              to="/wallet"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium bg-[#130e24] text-[#f0f7f7] border border-[#231a3d] hover:border-[#79bab6]"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" /> Return to Wallet
+            </NavLink>
+          </div>
+        </div>
+      </div>
     );
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <NavLink to="/wallet" className="inline-flex items-center gap-1.5 text-xs text-[#8ea5a8] hover:text-[#f0f7f7] transition-colors">
+    <div className="max-w-3xl mx-auto space-y-6 pb-12">
+      {/* Top Breadcrumb */}
+      <NavLink
+        to="/wallet"
+        className="inline-flex items-center gap-1.5 text-xs text-[#8ea5a8] hover:text-[#f0f7f7] transition-colors"
+      >
         <ArrowLeft className="w-3.5 h-3.5" /> Back to Student Wallet
       </NavLink>
 
-      <div className="p-6 sm:p-8 rounded-3xl border border-[#231a3d] bg-[#130e24] space-y-6">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[#06838d]/15 text-[#79bab6] flex items-center justify-center">
-              <Shield className="w-4.5 h-4.5" />
-            </div>
-            <h1 className="text-xl font-semibold text-[#f0f7f7]">Student Proof Consent & Disclosure</h1>
+      {/* Header */}
+      <div className="flex items-center justify-between pb-4 border-b border-[#231a3d]">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-[#06838d]/15 text-[#79bab6] flex items-center justify-center">
+            <Shield className="w-4.5 h-4.5" />
           </div>
-          <p className="text-xs text-[#8ea5a8] leading-relaxed">
-            Review exactly what attributes will be revealed to the verifier versus what remains private or proven in zero-knowledge.
-          </p>
-        </div>
-
-        {/* 3 Categories of Disclosure */}
-        <div className="space-y-3">
-          <div className="p-4 rounded-2xl border border-[#231a3d] bg-[#090614] space-y-2">
-            <div className="flex items-center gap-2 text-xs font-semibold text-[#79bab6] uppercase tracking-wider">
-              <Eye className="w-4 h-4" />
-              <span>Selectively Disclosed Fields</span>
-            </div>
-            <p className="text-xs text-[#8ea5a8] leading-relaxed">
-              These specific attributes will be visible to the verifier (BBS+ selective disclosure):
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight text-[#f0f7f7]">
+              Credential Consent & Disclosure
+            </h1>
+            <p className="text-xs text-[#8ea5a8]">
+              Zero-knowledge authorization gateway. You control exactly what leaves your device.
             </p>
-            <p className="text-xs font-mono text-[#8ea5a8]">Derived from request policy.</p>
-          </div>
-
-          <div className="p-4 rounded-2xl border border-[#231a3d] bg-[#090614] space-y-2">
-            <div className="flex items-center gap-2 text-xs font-semibold text-[#79bab6] uppercase tracking-wider">
-              <ShieldCheck className="w-4 h-4" />
-              <span>Proven in Zero-Knowledge (Groth16)</span>
-            </div>
-            <p className="text-xs text-[#8ea5a8] leading-relaxed">
-              The verifier only receives a cryptographic proof that the condition is met (e.g. "Age ≥ 21" or "Enrolled = Yes"). The actual data is never sent:
-            </p>
-            <p className="text-xs font-mono text-[#8ea5a8]">Derived from request policy.</p>
-          </div>
-
-          <div className="p-4 rounded-2xl border border-[#231a3d] bg-[#090614] space-y-2">
-            <div className="flex items-center gap-2 text-xs font-semibold text-[#8ea5a8] uppercase tracking-wider">
-              <Lock className="w-4 h-4" />
-              <span>Never Disclosed / Stays on Device</span>
-            </div>
-            <p className="text-xs text-[#8ea5a8] leading-relaxed">
-              These fields stay encrypted on your device and are never sent:
-            </p>
-            <p className="text-xs font-mono text-[#8ea5a8]">Student ID, full address, date of birth.</p>
           </div>
         </div>
-
-        <button
-          type="button"
-          disabled
-          className="w-full py-3 rounded-xl font-medium text-sm bg-[#06838d]/40 text-white cursor-not-allowed text-center transition-all"
-        >
-          Generate & Submit Proof (Available in V1)
-        </button>
       </div>
+
+      {/* 3-Tier Consent & Disclosure Visualizer */}
+      <ConsentScreen request={request} localCredentials={localCredentials} />
     </div>
   );
 };

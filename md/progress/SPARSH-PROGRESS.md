@@ -3,8 +3,8 @@
 **Role:** Frontend · DevOps (Docker, EC2, Caddy, Bedrock access) · seed pipeline · QA · docs · pitch
 **Owns:** `frontend/`, `infra/`, `docker-compose.yml`, `scripts/`, `seed/`, `docs/`, `.github/`, `README.md`, `*.env.example`
 **AI tools:** Antigravity / opencode (free models). Always paste the task ID + its numbered steps from `md/VERSION-PLAN.md`; never let the agent write crypto.
-**Current branch:** `sparsh/V1-S4-seed-pipeline`
-**Current task:** `V1-S4` (Seed pipeline v1)
+**Current branch:** `sparsh/V1-S5-wallet-respond`
+**Current task:** `V1-S5` (Wallet respond page shell)
 
 > Only SPARSH (and SPARSH's AI agent) edits this file. Append; don't rewrite history.
 > Read the bottom of this file aloud at every sync.
@@ -26,6 +26,7 @@
 | V1-S2 | Student Wallet (setup, inbox, credentials, backup) | DONE | #27 |
 | V1-S3 | Verifier portal (verifier create, manual policy builder, polling) | DONE | #28 |
 | V1-S4 | Seed pipeline v1 (seed/*.json, scripts/seed.ts, idempotent demo state) | DONE | #30 |
+| V1-S5 | Wallet respond page shell (presentation request, consent tiers, credential matching) | DONE | PR #31 (pending push) |
 
 ## Blocked on
 
@@ -66,6 +67,7 @@ Format: `HH:MM | TASK-ID | STARTED/DONE/BLOCKED/HANDOFF | what happened | files`
 - 02:03 | V1-S2 | DONE | Implemented Student Wallet: browser ECDH P-256 keypair via zk-core, idb-keyval store, offers inbox with BBS signature verification, credentials list with selective PII toggle, encrypted backup sync via PBKDF2/AES-GCM; typecheck & build green; browser verified | frontend/src/features/wallet/, frontend/src/lib/, frontend/src/api/
 - 02:35 | V1-S3 | DONE | Implemented Verifier Portal: verifier identity registration, natural language policy compiler (with graceful fallback banner), Visual Policy Builder with selective disclosure and ZK age predicates, Request Detail inspection with 4-stage evaluation pipeline visualizer and 2s live polling; typecheck, build & check-hardcoded green | frontend/src/features/verifier/, frontend/src/api/
 - 03:26 | V1-S4 | DONE | Implemented idempotent seed pipeline: seed/issuers.json (AIIMS Nagpur MBBS, IIIT Nagpur B.Tech, MMC, UIDAI), seed/holders.json (Asha, Rohan), seed/credentials.json, seed/verifiers.json, scripts/config.ts, scripts/seed.ts; verified on Base Sepolia and double-run idempotency | seed/, scripts/
+- 03:42 | V1-S5 | DONE | Implemented Student Wallet Respond page shell: query parameter request loading, local IndexedDB credential matching, 3-tier privacy consent breakdown (selective disclosure, zero-knowledge range proof, never-collect PII guardrails), authorization confirmation dialog; typecheck, build & check-hardcoded green | frontend/src/features/wallet/
 
 ## Notes for the pitch
 
