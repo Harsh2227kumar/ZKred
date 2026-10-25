@@ -2,7 +2,7 @@
 // TanStack query & mutation hooks for Institutional Issuers, Keys, Batches, and Issuance.
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '@/api/client';
+import { adminToken, apiClient, bearer, unwrap } from '@/api/client';
 import { config } from '@/config';
 import { getAdminAuthHeaders } from '@/lib/storage/session-token';
 import type {
@@ -10,6 +10,7 @@ import type {
   IssuerKey,
   IssuerCreate,
   IssuersListResponse,
+  CompromiseReport,
   Batch,
   BatchesListResponse,
   IssuedCredentialsListResponse,
@@ -178,6 +179,25 @@ export function useAnchorBatch(issuerId: string) {
       return res.json() as Promise<Batch>;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['issuer', issuerId, 'batches'] });
+    },
+  });
+}
+
+export function useReportCompromise(issuerId: string) {
+  const queryClient = useQueryClient();
+  return useMutation<CompromiseReport, unknown, { keyId: string; windowSeconds: number }>({
+    mutationFn: ({ keyId, windowSeconds }) =>
+      unwrap(
+        apiClient.POST('/issuers/{issuer_id}/keys/{key_id}/compromise', {
+          params: { path: { issuer_id: issuerId, key_id: keyId } },
+          body: { window_seconds: windowSeconds },
+          headers: bearer(adminToken.get()),
+        }),
+      ) as Promise<CompromiseReport>,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['issuers'] });
+      queryClient.invalidateQueries({ queryKey: ['issuer', issuerId] });
       queryClient.invalidateQueries({ queryKey: ['issuer', issuerId, 'batches'] });
     },
   });
