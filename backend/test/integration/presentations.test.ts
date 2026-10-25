@@ -221,6 +221,26 @@ describe.skipIf(!integrationEnabled)("presentations, revocation, breach (integra
     await request(app).post(`${api}/issuers/${uni.id}/credentials/${d.credential_id}/revoke`).set(adminAuth).expect(409);
   });
 
+  it("rotation anchors the old key's open batch first, so its credentials still verify", async () => {
+    const school = await createIssuer(app, "university");
+    const d = await issue(school, holder, "Degree");
+    const cred = await receive(holder, d.offer_id);
+    const rotated = (await request(app).post(`${api}/issuers/${school.id}/keys/rotate`).set(adminAuth).expect(200)).body;
+    expect(rotated.key_id).not.toBe(cred.key_id);
+
+    const batch = (await request(app).get(`${api}/issuers/${school.id}/batches`).expect(200)).body.items.find(
+      (b: { batch_id: string }) => b.batch_id === d.batch_id,
+    );
+    expect(batch).toMatchObject({ status: "anchored", key_id: cred.key_id });
+    expect((await verifyOnce(degreePolicy(), [cred])).result).toBe("accepted");
+    // Nothing to refresh: the credential is valid under the rotated (not compromised) key.
+    await request(app)
+      .post(`${api}/issuers/${school.id}/reissue`)
+      .set({ Authorization: `Bearer ${holder.token}` })
+      .send({ wallet_id: holder.id, old_credential: cred })
+      .expect(409);
+  });
+
   it("breach: forged ✓ before the report, ✗ after (naive still ✓); legacy ✓; in-window honest cred re-issued ✓", async () => {
     const auth = { Authorization: `Bearer ${holder.token}` };
     const school = await createIssuer(app, "university");
@@ -249,6 +269,9 @@ describe.skipIf(!integrationEnabled)("presentations, revocation, breach (integra
     const inWindow = await issue(school, holder, "Degree");
     await anchor(school, inWindow.batch_id);
     const inWindowCred = await receive(holder, inWindow.offer_id);
+    // …and one whose batch was still open (never anchored) when the key was reported.
+    const stranded = await issue(school, holder, "Degree");
+    const strandedCred = await receive(holder, stranded.offer_id);
 
     const before = (await request(app).post(`${api}/attack/verify-forged`).set(adminAuth).send({ mode: "full" }).expect(200)).body;
     expect(before).toMatchObject({ total: 3, accepted: 3, rejected: 0 });
@@ -263,6 +286,7 @@ describe.skipIf(!integrationEnabled)("presentations, revocation, breach (integra
     expect(verdicts[legacy.batch_id]).toBe("legacy_valid");
     expect(verdicts[forged.batch_id]).toBe("in_window_needs_reissue");
     expect(verdicts[inWindow.batch_id]).toBe("in_window_needs_reissue");
+    expect(verdicts[stranded.batch_id]).toBe("unanchored_invalid");
 
     const full = (await request(app).post(`${api}/attack/verify-forged`).set(adminAuth).send({ mode: "full" }).expect(200)).body;
     expect(full).toMatchObject({ total: 3, accepted: 0, rejected: 3, by_code: { KEY_COMPROMISED_ANCHORED_IN_WINDOW: 3 } });
@@ -282,8 +306,23 @@ describe.skipIf(!integrationEnabled)("presentations, revocation, breach (integra
     const fresh = await receive(holder, re.offer_id);
     expect(fresh.key_id).toBe(report.new_key.key_id);
     expect(fresh.values.degree_name).toBe(inWindowCred.values.degree_name);
+    // The stranded (never anchored, key now compromised) credential can be refreshed too.
+    const re2 = (
+      await request(app).post(`${api}/issuers/${school.id}/reissue`).set(auth).send({ wallet_id: holder.id, old_credential: strandedCred }).expect(201)
+    ).body;
+    const fresh2 = await receive(holder, re2.offer_id);
+    expect(fresh2.values.batch_id).toBe(fresh.values.batch_id);
     await anchor(school, fresh.values.batch_id!);
     expect((await verifyOnce(degreePolicy(), [fresh])).result).toBe("accepted");
+    expect((await verifyOnce(degreePolicy(), [fresh2])).result).toBe("accepted");
+
+    // A credential that still verifies is not re-issued (no duplicates).
+    const stillValid = await request(app)
+      .post(`${api}/issuers/${school.id}/reissue`)
+      .set(auth)
+      .send({ wallet_id: holder.id, old_credential: legacyCred })
+      .expect(409);
+    expect(stillValid.body.error.message).toMatch(/still valid/);
 
     await request(app).post(`${api}/issuers/${school.id}/reissue`).set(auth).send({ wallet_id: holder.id, old_credential: inWindowCred }).expect(409);
     const forgedCred = { ...inWindowCred, values: { ...inWindowCred.values, commitment: `0x${"11".repeat(32)}` } };

@@ -12,6 +12,7 @@ import { submitPresentation, useRequest } from '@/api/queries/verifiers';
 import type { Verification } from '@/api/schemas';
 import { createPresentation, fieldLabel, matchCredentials, todayDays, type IssuerInfo, type PresentationRequirement } from '@/lib/zk';
 import { useWalletSession } from '../hooks/useWalletSession';
+import { useCredentialStatuses } from '../hooks/useCredentialStatus';
 
 type Phase = 'idle' | 'fetching' | 'proving' | 'submitting' | 'done';
 const PHASES: { id: Exclude<Phase, 'idle' | 'done'>; label: string }[] = [
@@ -46,14 +47,24 @@ export const WalletRespondPage: React.FC = () => {
     () => Object.fromEntries((issuers.data?.items ?? []).map((i) => [i.did, { kind: i.kind, accredited: i.accredited }])),
     [issuers.data],
   );
-  const creds = useMemo(() => session.wallet?.credentials.map((c) => c.credential) ?? [], [session.wallet]);
-  const matches = useMemo(
+  const stored = useMemo(() => session.wallet?.credentials ?? [], [session.wallet]);
+  const statuses = useCredentialStatuses(stored);
+  // Only copies a verifier will accept right now (not revoked, anchored, outside any compromise window, not replaced
+  // by a refresh), newest first: zk-core uses the first match, and an old in-window copy would be rejected.
+  const usable = useMemo(
     () =>
-      Object.fromEntries(
-        (req.data?.policy.requirements ?? []).map((r) => [r.id, matchCredentials(r, creds, { todayDays: todayDays(), issuers: issuerInfo })]),
-      ),
-    [req.data, creds, issuerInfo],
+      stored
+        .filter((c) => !c.replaced_at && statuses.data?.[c.offer_id]?.kind === 'active')
+        .sort((a, b) => b.received_at.localeCompare(a.received_at))
+        .map((c) => c.credential),
+    [stored, statuses.data],
   );
+  const matchesIn = (creds: typeof usable) =>
+    Object.fromEntries(
+      (req.data?.policy.requirements ?? []).map((r) => [r.id, matchCredentials(r, creds, { todayDays: todayDays(), issuers: issuerInfo })]),
+    );
+  const matches = useMemo(() => matchesIn(usable), [req.data, usable, issuerInfo]); // eslint-disable-line react-hooks/exhaustive-deps
+  const allCopies = useMemo(() => matchesIn(stored.map((c) => c.credential)), [req.data, stored, issuerInfo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!requestId) {
     return (
@@ -68,9 +79,10 @@ export const WalletRespondPage: React.FC = () => {
       />
     );
   }
-  if (req.isLoading || session.loading || issuers.isLoading) return <Loading label="Loading the request..." />;
+  if (req.isLoading || session.loading || issuers.isLoading || statuses.isLoading) return <Loading label="Loading the request..." />;
   if (req.error) return <ErrorState error={req.error} onRetry={() => req.refetch()} />;
   if (issuers.error) return <ErrorState error={issuers.error} onRetry={() => issuers.refetch()} />;
+  if (statuses.error) return <ErrorState error={statuses.error} onRetry={() => statuses.refetch()} />;
   const request = req.data!;
   const policy = request.policy;
   const allMatched = policy.requirements.every((r) => (matches[r.id]?.length ?? 0) > 0);
@@ -136,7 +148,11 @@ export const WalletRespondPage: React.FC = () => {
                 {found.length ? (
                   <span className="text-[11px] font-semibold text-emerald-500">You have {found.length} matching</span>
                 ) : (
-                  <span className="text-[11px] font-semibold text-rose-500">No matching credential in this wallet</span>
+                  <span className="text-[11px] font-semibold text-rose-500">
+                    {(allCopies[r.id]?.length ?? 0) > 0
+                      ? 'Your matching credential needs attention (revoked, not anchored yet, or needs a refresh): see your wallet'
+                      : 'No matching credential in this wallet'}
+                  </span>
                 )}
               </div>
               <div className="p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 space-y-1.5">

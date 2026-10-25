@@ -38,5 +38,9 @@ Object.assign(process.env, {
   BEDROCK_MODEL_ID: "test-model",
   AWS_BEARER_TOKEN_BEDROCK: randomBytes(16).toString("hex"),
   AI_TIMEOUT_MS: "1500",
+  AI_CONSENT_TIMEOUT_MS: "1500",
+  // Suites call these endpoints many times from one IP; the limiter itself is tested in test/api/rate-limit.test.ts.
+  RATE_LIMIT_AI_MAX: "1000",
+  RATE_LIMIT_VERIFY_MAX: "1000",
   HEALTH_CHECK_TIMEOUT_MS: "1500",
 });

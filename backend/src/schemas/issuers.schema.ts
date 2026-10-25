@@ -37,6 +37,9 @@ export const Issuer = z
     issuer_chain_id: Hex32.meta({ description: "keccak256(did)" }),
     governance_address: Address,
     accredited: z.boolean().meta({ description: "Read from IssuerRegistry" }),
+    accredited_as_of: DateTime.meta({
+      description: "When `accredited` was read from the chain (cached up to ISSUER_CACHE_TTL_MS; older if the RPC is down)",
+    }),
     keys: z.array(IssuerKey),
     created_at: DateTime,
   })

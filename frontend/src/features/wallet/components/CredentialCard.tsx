@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { toast } from 'sonner';
-import { Eye, EyeOff, GraduationCap, IdCard, Loader2, RefreshCw, Stethoscope } from 'lucide-react';
+import { Eye, EyeOff, GraduationCap, IdCard, Loader2, RefreshCw, Stethoscope, Trash2 } from 'lucide-react';
 import { Hex } from '@/components/common/Hex';
 import { toUserMessage } from '@/api/client';
 import type { StoredCredential } from '@/lib/wallet-store';
@@ -13,26 +13,30 @@ const statusBadge: Record<CredentialStatus['kind'], { label: string; cls: string
   active: { label: 'Active', cls: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' },
   pending_anchor: { label: 'Waiting for anchor', cls: 'bg-amber-500/10 text-amber-500 border-amber-500/20' },
   revoked: { label: 'Revoked', cls: 'bg-rose-500/10 text-rose-500 border-rose-500/20' },
-  needs_refresh: { label: 'Issued during compromise window', cls: 'bg-amber-500/10 text-amber-500 border-amber-500/20' },
+  needs_refresh: { label: 'Needs refresh', cls: 'bg-amber-500/10 text-amber-500 border-amber-500/20' },
   invalid: { label: 'Invalid', cls: 'bg-rose-500/10 text-rose-500 border-rose-500/20' },
 };
 
 export const CredentialCard: React.FC<{
   stored: StoredCredential;
   status?: CredentialStatus;
+  /** Refresh writes to the encrypted backup, so it needs the unlocked wallet. */
+  canRefresh: boolean;
   onRefresh: () => Promise<void>;
-}> = ({ stored, status, onRefresh }) => {
+  onRemove: () => Promise<void>;
+}> = ({ stored, status, canRefresh, onRefresh, onRemove }) => {
   const [showPii, setShowPii] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const cred = stored.credential;
   const Icon = typeIcon[cred.type] ?? IdCard;
-  const badge = status ? statusBadge[status.kind] : null;
+  const replaced = Boolean(stored.replaced_at);
+  const badge = replaced ? { label: 'Replaced', cls: 'bg-muted text-muted-foreground border-border' } : status ? statusBadge[status.kind] : null;
 
   const refresh = async () => {
     setRefreshing(true);
     try {
       await onRefresh();
-      toast.success('Re-issue requested', { description: 'The fresh credential is in your inbox.' });
+      toast.success('Re-issue requested', { description: 'Check your inbox for the fresh copy.' });
     } catch (err) {
       toast.error(toUserMessage(err));
     } finally {
@@ -69,11 +73,17 @@ export const CredentialCard: React.FC<{
       </dl>
 
       {status?.kind === 'invalid' && <p className="text-xs text-rose-500">{status.reason}</p>}
-      {status?.kind === 'needs_refresh' && (
-        <p className="text-xs text-amber-500">
-          The issuer reported its signing key compromised and this credential was anchored inside the compromise window. Refresh it to get
-          a copy signed with the new key.
+      {replaced ? (
+        <p className="text-xs text-muted-foreground">
+          A refreshed copy was requested on {new Date(stored.replaced_at!).toLocaleString()}. This old copy is never shared; you can remove it.
         </p>
+      ) : (
+        status?.kind === 'needs_refresh' && (
+          <p className="text-xs text-amber-500">
+            Verifiers no longer accept this copy: it was anchored inside its issuer's key-compromise window, or never anchored before the
+            key was retired. Refresh it to get a copy signed with the issuer's current key.
+          </p>
+        )
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-border/40">
@@ -90,11 +100,21 @@ export const CredentialCard: React.FC<{
             {showPii ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
             {showPii ? 'Hide personal fields' : 'Show on this device'}
           </button>
-          {status?.kind === 'needs_refresh' && (
+          {replaced && (
+            <button
+              type="button"
+              onClick={() => onRemove().catch((err: unknown) => toast.error(toUserMessage(err)))}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs border border-border hover:bg-muted"
+            >
+              <Trash2 className="w-3 h-3" /> Remove old copy
+            </button>
+          )}
+          {!replaced && status?.kind === 'needs_refresh' && (
             <button
               type="button"
               onClick={refresh}
-              disabled={refreshing}
+              disabled={refreshing || !canRefresh}
+              title={canRefresh ? undefined : 'Unlock the wallet first'}
               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-amber-500 text-white hover:bg-amber-500/90 disabled:opacity-50"
             >
               {refreshing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}

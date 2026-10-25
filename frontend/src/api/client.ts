@@ -70,6 +70,8 @@ export function toUserMessage(error: unknown, fallbackMessage?: string): string 
       return 'Blockchain RPC is unreachable. Verification fails closed for security.';
     case 'CHAIN_TX_FAILED':
       return 'On-chain transaction failed or reverted. Please check the transaction on BaseScan.';
+    case 'RATE_LIMITED':
+      return message || 'Too many requests. Please wait a minute and try again.';
     case 'MISSING_CREDENTIAL':
       return message || 'Your wallet has no credential that satisfies this request.';
     case 'BAD_PASSPHRASE':

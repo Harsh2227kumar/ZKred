@@ -1679,6 +1679,11 @@ export interface components {
             governance_address: components["schemas"]["Address"];
             /** @description Read from IssuerRegistry */
             accredited: boolean;
+            /**
+             * Format: date-time
+             * @description When `accredited` was read from the chain (cached up to ISSUER_CACHE_TTL_MS; older if the RPC is down)
+             */
+            accredited_as_of: string;
             keys: components["schemas"]["IssuerKey"][];
             created_at: components["schemas"]["DateTime"];
         };
