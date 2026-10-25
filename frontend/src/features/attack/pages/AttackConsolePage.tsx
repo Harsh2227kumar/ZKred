@@ -109,7 +109,7 @@ export const AttackConsolePage: React.FC = () => {
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-medium bg-[#06838d]/40 text-white cursor-not-allowed"
           >
             <Play className="w-3.5 h-3.5" />
-            <span>Run Security Audit (Available in V1)</span>
+            <span>Run Security Audit (Staged for V1.2)</span>
           </button>
         </div>
       </div>
