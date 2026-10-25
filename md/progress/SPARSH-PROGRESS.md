@@ -4,7 +4,7 @@
 **Owns:** `frontend/`, `infra/`, `docker-compose.yml`, `scripts/`, `seed/`, `docs/`, `.github/`, `README.md`, `*.env.example`
 **AI tools:** Antigravity / opencode (free models). Always paste the task ID + its numbered steps from `md/VERSION-PLAN.md`; never let the agent write crypto.
 **Current branch:** `<branch>`
-**Current task:** `<task ID from VERSION-PLAN.md>`
+**Current task:** `V0-S4` (live EC2 URL), `V0-S5` (Bedrock access)
 
 > Only SPARSH (and SPARSH's AI agent) edits this file. Append; don't rewrite history.
 > Read the bottom of this file aloud at every sync.
@@ -15,11 +15,13 @@
 
 | Task ID | Task | Status | PR |
 |---|---|---|---|
-| V0-S1 | Frontend scaffold | TODO | |
-| V0-S2 | docker-compose + Dockerfiles + Caddyfile + .env.examples | TODO | |
-| V0-S3 | GitHub repo settings, CODEOWNERS handles | TODO | |
-| V0-S4 | EC2 deploy hello-world | TODO | |
-| V0-S5 | Bedrock model access + credentials | TODO | |
+| V0-S0 | Scope freeze & environment templates | DONE | #8 |
+| V0-S1 | Frontend scaffold | DONE | #10 |
+| V0-S2 | docker-compose + Dockerfiles + Caddyfile + .env.examples | DONE | #11 |
+| V0-S3 | GitHub repo settings, CODEOWNERS handles | DONE | #12 |
+| V0-S4 | EC2 deploy hello-world | IN PROGRESS: scripts merged (#13); live URL not up yet | #13 |
+| V0-S5 | Bedrock model access + credentials | IN PROGRESS: config merged (#14, #15); `/health` still shows `ai: down` | #14 |
+| V0-S6 | gen:api (openapi-typescript → src/api/types.ts) | DONE | #16 |
 
 ## Blocked on
 
@@ -45,7 +47,15 @@
 
 Format: `HH:MM | TASK-ID | STARTED/DONE/BLOCKED/HANDOFF | what happened | files`
 
-- HH:MM | V0-S1 | STARTED |
+- 18:35 | V0-S0 | DONE | Froze MVP-SCOPE.md at 18:30 (Gate 0); created root .env.example matching backend config, contracts/.env.example, scripts/.env.example; verified check-hardcoded.sh OK | md/MVP-SCOPE.md, .env.example, contracts/.env.example, scripts/.env.example, docs/
+- 18:50 | V0-S1 | DONE | Vite React 19 + TS + Tailwind v4 frontend scaffold; PR #10 | frontend/, pnpm-lock.yaml
+- 19:25 | V0-S2 | DONE | Container infra: docker-compose.yml; backend.Dockerfile; frontend.Dockerfile; Caddyfile; PR #11 | docker-compose.yml, infra/, *.env.example
+- 19:42 | V0-S3 | DONE | GitHub repo governance: .github/CODEOWNERS with @Harsh2227kumar & @Sparsh566; PR #12 | .github/CODEOWNERS
+- 19:50 | V0-S4 | STARTED | EC2 deployment tooling: setup-ec2.sh, deploy.sh; PR #13 | infra/
+- 20:15 | V0-S5 | STARTED | Bedrock setup notes; PR #14 | —
+- 20:30 | V0-SYNC | DONE | Synced Base Sepolia registry addresses & Bedrock model id into .env.example; PR #15 | .env.example, scripts/.env.example, frontend/.env.example
+- 20:45 | V0-S6 | DONE | OpenAPI type generation; PR #16 | frontend/src/api/
+- 21:15 | V0-INTEGRATION | DONE | (HARSH) Merged PRs #8, #10–#16 into harsh/V0-integration and fixed review findings: frontend Docker build bakes VITE_API_BASE_URL / VITE_ZK_ARTIFACTS_BASE_URL (bundle threw on load before); gen:api script + generated-only types.ts, aliases in api/schemas.ts, client typed with paths; issuer pages show 501 until V1-H1; removed fake wallet/consent data and hardcoded chain name (ChainName from /meta/chain, steps from /meta/enums); pnpm 12.15.0 in Dockerfiles; .dockerignore; deploy.sh waits for /health; secrets blank in .env.example; removed docs/plan.md, docs/implementation.md, scripts/export-openapi.ts | frontend/, infra/, .env.example, scripts/.env.example, .dockerignore
 
 ## Notes for the pitch
 

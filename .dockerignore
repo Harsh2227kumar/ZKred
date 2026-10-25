@@ -1,0 +1,12 @@
+# Keep host-installed modules (often another OS) and local secrets out of the build context.
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+!**/.env.example
+.git
+contracts/artifacts
+contracts/cache
+contracts/typechain-types
+circuits/tmp
+*.log
