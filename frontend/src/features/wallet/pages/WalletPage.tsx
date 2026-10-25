@@ -1,13 +1,71 @@
-import React, { useState } from 'react';
-import { Wallet, ShieldCheck, Download, Inbox, KeyRound } from 'lucide-react';
-import { EmptyState } from '@/components/common/EmptyState';
+// frontend/src/features/wallet/pages/WalletPage.tsx
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  Wallet,
+  ShieldCheck,
+  Lock,
+  LogOut,
+} from 'lucide-react';
+import { toast } from 'sonner';
 import { Hex } from '@/components/common/Hex';
+import { Loading } from '@/components/common/Loading';
+import { useIssuers } from '@/api/queries/issuers';
+import {
+  getWalletMetadata,
+  getStoredCredentials,
+  clearWalletStore,
+  type WalletMetadata,
+} from '@/lib/wallet-store';
+import type { SignedCredential } from '@/lib/wallet-crypto';
+import { WalletSetup } from '../components/WalletSetup';
+import { WalletInbox } from '../components/WalletInbox';
+import { CredentialList } from '../components/CredentialList';
+import { BackupModal } from '../components/BackupModal';
 
 export const WalletPage: React.FC = () => {
-  // Wallet creation lands in V1-S2; until then we show the setup screen.
-  const [hasWallet] = useState(false);
-  const [walletId] = useState<string | null>(null);
-  const [displayName, setDisplayName] = useState<string>('');
+  const [meta, setMeta] = useState<WalletMetadata | null>(null);
+  const [credentials, setCredentials] = useState<SignedCredential[]>([]);
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [showBackupModal, setShowBackupModal] = useState(false);
+
+  const { data: issuersData } = useIssuers();
+  const issuers = issuersData?.items || [];
+
+  const loadLocalWallet = useCallback(async () => {
+    try {
+      const storedMeta = await getWalletMetadata();
+      setMeta(storedMeta);
+      if (storedMeta) {
+        const storedCreds = await getStoredCredentials();
+        setCredentials(storedCreds);
+      }
+    } catch (err) {
+      console.error('Failed to load wallet from IndexedDB:', err);
+    } finally {
+      setIsInitializing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadLocalWallet();
+  }, [loadLocalWallet]);
+
+  const handleForgetWallet = async () => {
+    if (
+      window.confirm(
+        'Are you sure you want to forget this wallet on this device? Ensure you have your Wallet ID, Token, and Passphrase to restore.'
+      )
+    ) {
+      await clearWalletStore();
+      setMeta(null);
+      setCredentials([]);
+      toast.success('Wallet removed from device memory.');
+    }
+  };
+
+  if (isInitializing) {
+    return <Loading label="Accessing local sovereign keys..." />;
+  }
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
@@ -25,100 +83,92 @@ export const WalletPage: React.FC = () => {
           </p>
         </div>
 
-        {hasWallet && (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#130e24] border border-[#231a3d]">
-            <span className="text-xs text-[#8ea5a8]">Wallet ID:</span>
-            <Hex value={walletId || ''} prefixLen={8} suffixLen={6} />
+        {meta && (
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#130e24] border border-[#231a3d] text-xs">
+              <span className="text-[#79bab6] font-medium">{meta.display_name}</span>
+              <span className="text-[#8ea5a8]/50">•</span>
+              <span className="text-[#8ea5a8]">ID:</span>
+              <Hex value={meta.id} prefixLen={6} suffixLen={4} />
+            </div>
+
+            <button
+              onClick={() => setShowBackupModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#231a3d] bg-[#130e24] text-xs font-medium text-[#f0f7f7] hover:bg-[#1a1430] transition-colors cursor-pointer"
+            >
+              <Lock className="w-3.5 h-3.5 text-[#79bab6]" />
+              <span>Backup</span>
+            </button>
+
+            <button
+              onClick={handleForgetWallet}
+              title="Forget wallet on this device"
+              className="p-1.5 rounded-full border border-[#231a3d] bg-[#130e24] text-[#8ea5a8] hover:text-[#ff453a] hover:bg-[#1a1430] transition-colors cursor-pointer"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
         )}
       </div>
 
-      {!hasWallet ? (
-        <div className="max-w-md mx-auto p-8 rounded-3xl border border-[#231a3d] bg-[#130e24] space-y-6">
-          <div className="text-center space-y-2">
-            <div className="w-12 h-12 rounded-2xl bg-[#06838d]/15 text-[#79bab6] mx-auto flex items-center justify-center">
-              <KeyRound className="w-6 h-6" />
-            </div>
-            <h2 className="text-xl font-semibold text-[#f0f7f7]">Create Student Wallet</h2>
-            <p className="text-xs text-[#8ea5a8] leading-relaxed">
-              Your cryptographic keys are generated in your browser and never sent to a server. You maintain full ownership of your credentials.
-            </p>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <label className="text-xs font-medium text-[#f0f7f7] block mb-1.5">Student Handle / Name</label>
-              <input
-                type="text"
-                placeholder="e.g. alex.student"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-[#231a3d] bg-[#090614] text-[#f0f7f7] placeholder-[#8ea5a8] focus:border-[#79bab6] focus:outline-hidden"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs font-medium text-[#f0f7f7] block mb-1.5">Backup Passphrase (min 10 characters)</label>
-              <input
-                type="password"
-                placeholder="Enter a secure recovery passphrase"
-                className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-[#231a3d] bg-[#090614] text-[#f0f7f7] placeholder-[#8ea5a8] focus:border-[#79bab6] focus:outline-hidden"
-              />
-            </div>
-
-            <button
-              type="button"
-              disabled
-              className="w-full py-3 rounded-xl text-sm font-medium bg-[#06838d]/40 text-white cursor-not-allowed transition-all"
-            >
-              Initialize Wallet (Available in V1)
-            </button>
-          </div>
-        </div>
+      {!meta ? (
+        <WalletSetup onWalletReady={loadLocalWallet} />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Credentials Area */}
           <div className="lg:col-span-2 space-y-4">
-            <h3 className="text-xs font-semibold text-[#8ea5a8] uppercase tracking-wider">My Digital Credentials</h3>
-            <EmptyState
-              title="No credentials claimed yet"
-              description="Your claimed student cards, degrees, and certificates will appear here."
-              icon={<ShieldCheck className="w-8 h-8 text-[#79bab6]" />}
-            />
-          </div>
-
-          {/* Sidebar: Inbox & Backup */}
-          <div className="space-y-4">
-            <div className="p-5 rounded-3xl border border-[#231a3d] bg-[#130e24] space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm font-semibold text-[#f0f7f7]">
-                  <Inbox className="w-4 h-4 text-[#79bab6]" />
-                  <span>Offers Inbox</span>
-                </div>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-[#231a3d] text-[#8ea5a8] font-medium">0</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <h3 className="text-xs font-semibold text-[#8ea5a8] uppercase tracking-wider">
+                  My Digital Credentials
+                </h3>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-[#130e24] text-[#79bab6] border border-[#231a3d] font-medium">
+                  {credentials.length}
+                </span>
               </div>
-              <p className="text-xs text-[#8ea5a8] leading-relaxed">
-                Official credential offers from your university or college will arrive here encrypted with your public key.
-              </p>
+              <span className="text-[11px] text-[#8ea5a8]">
+                Selective disclosure ready
+              </span>
             </div>
 
+            <CredentialList credentials={credentials} issuers={issuers} />
+          </div>
+
+          {/* Sidebar: Inbox & Security */}
+          <div className="space-y-5">
+            <WalletInbox
+              walletId={meta.id}
+              walletToken={meta.wallet_token}
+              onClaimSuccess={loadLocalWallet}
+              onRequirePassphrase={() => setShowBackupModal(true)}
+            />
+
+            {/* Privacy Guarantee Card */}
             <div className="p-5 rounded-3xl border border-[#231a3d] bg-[#130e24] space-y-3">
-              <div className="flex items-center gap-2 text-sm font-semibold text-[#f0f7f7]">
-                <Download className="w-4 h-4 text-[#79bab6]" />
-                <span>Encrypted Backup</span>
+              <div className="flex items-center gap-2 text-xs font-semibold text-[#79bab6]">
+                <ShieldCheck className="w-4 h-4" />
+                <span>Zero-Knowledge Proof Guard</span>
               </div>
               <p className="text-xs text-[#8ea5a8] leading-relaxed">
-                Store an encrypted ciphertext copy using your passphrase. The server cannot read your backup.
+                When presenting evidence to employers or verifiers, your browser computes BBS+ selective disclosure proofs and Circom ZK proofs without exposing your plaintext claims.
               </p>
-              <button
-                type="button"
-                className="w-full py-2 text-xs font-medium rounded-xl border border-[#231a3d] text-[#f0f7f7] hover:bg-[#1a1430] transition-colors cursor-pointer"
-              >
-                Sync Encrypted Backup
-              </button>
+              <div className="pt-2 border-t border-[#231a3d] flex items-center justify-between text-[11px] text-[#8ea5a8]">
+                <span>Storage:</span>
+                <span className="font-mono text-[#79bab6]">IndexedDB (Client)</span>
+              </div>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Backup Sync Modal */}
+      {meta && (
+        <BackupModal
+          isOpen={showBackupModal}
+          onClose={() => setShowBackupModal(false)}
+          walletId={meta.id}
+          walletToken={meta.wallet_token}
+        />
       )}
     </div>
   );

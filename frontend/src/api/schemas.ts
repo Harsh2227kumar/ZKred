@@ -74,3 +74,48 @@ export interface WalletLookupResponse {
   display_name: string;
   enc_public_key: string;
 }
+
+export interface WalletCreateIn {
+  display_name: string;
+  enc_public_key: string;
+}
+
+export interface WalletCreated {
+  id: string;
+  display_name: string;
+  wallet_token: string;
+}
+
+export interface CredentialOffer {
+  id: string;
+  wallet_id: string;
+  issuer_id: string;
+  credential_type: string;
+  ephemeral_public_key: string;
+  iv: string;
+  ciphertext: string;
+  created_at: string;
+  claimed_at: string | null;
+}
+
+export interface OffersListResponse {
+  items: CredentialOffer[];
+}
+
+export interface BackupIn {
+  ciphertext: string;
+  iv: string;
+  salt: string;
+  kdf_iterations: number;
+  version: number;
+}
+
+export interface Backup {
+  wallet_id: string;
+  ciphertext: string;
+  iv: string;
+  salt: string;
+  kdf_iterations: number;
+  version: number;
+  updated_at: string;
+}

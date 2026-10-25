@@ -1,8 +1,8 @@
-# V1-S1 Implementation Specification: Issuer Console
+# V1-S2 Implementation Specification: Student Wallet
 
 > **Owner:** SPARSH  
-> **Task ID:** `V1-S1`  
-> **Branch Target:** `sparsh/V1-S1-issuer-console`
+> **Task ID:** `V1-S2`  
+> **Branch Target:** `sparsh/V1-S2-student-wallet`
 
 ---
 
@@ -10,67 +10,64 @@
 
 ```text
 frontend/src/
+├── lib/
+│   ├── wallet-crypto.ts         # Encapsulates all @zkred/zk-core calls (WebCrypto ECDH, decryptOffer, BBS verify, backup)
+│   └── wallet-store.ts          # idb-keyval wrapper managing wallet metadata, keys, credentials, and session passphrase
 ├── api/queries/
-│   └── issuers.ts               # useIssuers, useIssuer, useCreateIssuer, useRotateKey,
-│                                # useIssueCredential, useIssuedCredentials, useBatches, useAnchorBatch
-└── features/issuer/
+│   └── wallets.ts               # useCreateWallet, useOffers, useClaimOffer, useBackup, useSaveBackup
+└── features/wallet/
     ├── components/
-    │   ├── AdminTokenPrompt.tsx # Modal to enter/manage ISSUER_ADMIN_TOKEN in sessionStorage
-    │   ├── CreateIssuerDialog.tsx# Modal to register new issuer (name, kind, did_suffix)
-    │   ├── KeysTab.tsx          # Key epochs table + Rotate Key mutation
-    │   ├── IssueForm.tsx        # Dynamic fields from schemas + recipient lookup + issue mutation
-    │   ├── IssuedTab.tsx        # Paginated credentials table (no PII)
-    │   └── BatchesTab.tsx       # Batches table + on-chain Anchor mutation
+    │   ├── WalletSetup.tsx      # Create wallet (display name + passphrase) & Restore wallet tabs
+    │   ├── WalletInbox.tsx      # Offers list with "Claim & Verify" action
+    │   ├── CredentialCard.tsx   # Credential presentation card with selective PII toggle
+    │   ├── CredentialList.tsx   # Grid of claimed credentials
+    │   └── BackupModal.tsx      # Passphrase prompt when updating/exporting encrypted backup
     └── pages/
-        ├── IssuerListPage.tsx   # /issuer route
-        └── IssuerDetailPage.tsx # /issuer/:issuerId route (4 tabs)
+        └── WalletPage.tsx       # Master wallet dashboard
 ```
 
 ---
 
 ## 2. Technical Specifications
 
-### 2.1 Admin Token Storage
-- Key: `sessionStorage.getItem('zkred_issuer_admin_token')`.
-- Headers passed on authenticated requests: `Authorization: Bearer <token>`.
-- Token status indicator in page header with clear / re-enter action.
+### 2.1 IndexedDB Storage Schema (`idb-keyval`)
+- Key `zkred_wallet_meta`: `{ id: string, display_name: string, wallet_token: string }`
+- Key `zkred_wallet_key`: `{ privateKeyJwk: JsonWebKey, publicKeyB64: string }`
+- Key `zkred_credentials`: `SignedCredential[]` (array of held credentials)
 
-### 2.2 Queries & Mutations (`api/queries/issuers.ts`)
-- `useIssuers()`: Calls `GET /issuers`.
-- `useIssuer(id)`: Calls `GET /issuers/{id}`.
-- `useCreateIssuer()`: Calls `POST /issuers` with `{ name, kind, did_suffix }`.
-- `useRotateKey(id)`: Calls `POST /issuers/{id}/keys/rotate`.
-- `useIssueCredential(id)`: Calls `POST /issuers/{id}/credentials` with `{ credential_type, wallet_id, claims }`.
-- `useIssuedCredentials(id)`: Calls `GET /issuers/{id}/credentials`.
-- `useBatches(id)`: Calls `GET /issuers/{id}/batches`.
-- `useAnchorBatch(issuerId)`: Calls `POST /issuers/{issuerId}/batches/{batchId}/anchor`.
+### 2.2 Library Encapsulation (`frontend/src/lib/wallet-crypto.ts`)
+Per `AGENTS.md` §8.3, **only files in `lib/` may import `@zkred/zk-core`**:
+- `generateWalletKeys()`: Calls `walletCrypto.generateWalletKeyPair()`.
+- `decryptAndVerifyOffer(privateKeyJwk, offer, issuerBbsPublicKey)`:
+  1. `walletCrypto.decryptOffer(privateKeyJwk, offer)` -> `SignedCredential`.
+  2. `verifyCredential(credential, issuerBbsPublicKey)` -> `boolean`.
+- `encryptWalletBackup(passphrase, walletPayload)`: Calls `walletCrypto.encryptBackup(passphrase, walletPayload, 100_000)`.
+- `decryptWalletBackup(passphrase, backupPayload)`: Calls `walletCrypto.decryptBackup(passphrase, backupPayload)`.
 
-### 2.3 Dynamic Issue Form Logic (`IssueForm.tsx`)
-1. Fetches schemas via `useCredentialSchemas()` (`/meta/credential-schemas`).
-2. Dropdown to select credential type (`Degree`, `GovernmentId`, `MedicalLicense`).
-3. Recipient input: Debounced search against `GET /wallets/lookup?display_name=`. Shows checkmark with resolved `id` or error if not found.
-4. Renders input per field in `schema.fields` where `source == "claim"`:
-   - `kind == "date"`: HTML date picker.
-   - `kind == "int"`: Number input.
-   - `kind == "string"`: Text input.
-   - Subtle badge if `field.pii == true` indicating privacy-sensitive claim.
+### 2.3 API Integration (`api/queries/wallets.ts`)
+- `useCreateWallet()`: Calls `POST /wallets` with `{ display_name, enc_public_key }`.
+- `useOffers(walletId, walletToken)`: Calls `GET /wallets/{walletId}/offers` with `Authorization: Bearer <wallet_token>`.
+- `useClaimOffer(walletId, walletToken)`: Calls `POST /wallets/{walletId}/offers/{offerId}/claim` with `Authorization: Bearer <wallet_token>`.
+- `useBackup(walletId, walletToken)`: Calls `GET /wallets/{walletId}/backup` with `Authorization: Bearer <wallet_token>`.
+- `useSaveBackup(walletId, walletToken)`: Calls `PUT /wallets/{walletId}/backup` with `Authorization: Bearer <wallet_token>`.
 
-### 2.4 Mutation Safeguards
-- Non-optimistic: `isPending` state disables submit button and displays loading spinner.
-- Success: Fires `sonner` toast containing BaseScan `TxLink` when `tx_hash` is present.
-- Failure: Standard error mapping via `toUserMessage(error)`.
+### 2.4 Privacy & UI Guardrails
+- **No plaintext holder PII on servers**: Holder claims are decrypted and verified in the browser only.
+- **Selective Disclosure Toggle**: Non-PII fields (`degree_name`, `institution`, `graduation_year`) are displayed immediately. PII fields (`holder_name`, `dob`, `address`) are blurred until the user clicks *"Show on this device"*.
+- **Passphrase Security**: The recovery passphrase is held in volatile React memory only; never persisted in IndexedDB or localStorage.
 
 ---
 
 ## 3. Step-by-Step Execution Plan
 
-1. **Step 1**: Write `frontend/src/api/queries/issuers.ts`.
-2. **Step 2**: Implement `AdminTokenPrompt.tsx` and `CreateIssuerDialog.tsx`.
-3. **Step 3**: Implement `KeysTab.tsx` and `BatchesTab.tsx`.
-4. **Step 4**: Implement `IssueForm.tsx` (dynamic schema fields + wallet lookup) and `IssuedTab.tsx`.
-5. **Step 5**: Update `IssuerListPage.tsx` and `IssuerDetailPage.tsx` to mount these components.
-6. **Step 6 (Testing & QA)**:
-   - Run `pnpm --filter frontend typecheck`.
-   - Run `pnpm --filter frontend build`.
-   - Run `bash scripts/check-hardcoded.sh`.
-   - Verify UI rendering and interactions in browser.
+1. **Step 1**: Implement `frontend/src/lib/wallet-crypto.ts` (wrapping `@zkred/zk-core`) and `frontend/src/lib/wallet-store.ts` (`idb-keyval` persistence).
+2. **Step 2**: Implement `frontend/src/api/queries/wallets.ts`.
+3. **Step 3**: Build `WalletSetup.tsx` (create wallet + restore wallet with passphrase validation).
+4. **Step 4**: Build `WalletInbox.tsx` (decrypt offer, verify BBS signature via issuer key, save to IndexedDB, call claim endpoint).
+5. **Step 5**: Build `CredentialCard.tsx` and `CredentialList.tsx` with selective PII visibility.
+6. **Step 6**: Wire `WalletPage.tsx` to mount the live wallet state, inbox, credential list, and backup status.
+7. **Step 7 (Verification & Testing)**:
+   - `pnpm --filter frontend typecheck`
+   - `pnpm --filter frontend build`
+   - `bash scripts/check-hardcoded.sh`
+   - Browser verification: create wallet, claim offer, reload page, restore wallet on clean state.
