@@ -3,8 +3,8 @@
 **Role:** Frontend · DevOps (Docker, EC2, Caddy, Bedrock access) · seed pipeline · QA · docs · pitch
 **Owns:** `frontend/`, `infra/`, `docker-compose.yml`, `scripts/`, `seed/`, `docs/`, `.github/`, `README.md`, `*.env.example`
 **AI tools:** Antigravity / opencode (free models). Always paste the task ID + its numbered steps from `md/VERSION-PLAN.md`; never let the agent write crypto.
-**Current branch:** `<branch>`
-**Current task:** `<task ID from VERSION-PLAN.md>`
+**Current branch:** `sparsh/V0-S0-scope-setup`
+**Current task:** `V0-S0`
 
 > Only SPARSH (and SPARSH's AI agent) edits this file. Append; don't rewrite history.
 > Read the bottom of this file aloud at every sync.
@@ -15,6 +15,7 @@
 
 | Task ID | Task | Status | PR |
 |---|---|---|---|
+| V0-S0 | Scope freeze & environment templates | DONE | |
 | V0-S1 | Frontend scaffold | TODO | |
 | V0-S2 | docker-compose + Dockerfiles + Caddyfile + .env.examples | TODO | |
 | V0-S3 | GitHub repo settings, CODEOWNERS handles | TODO | |
@@ -45,7 +46,7 @@
 
 Format: `HH:MM | TASK-ID | STARTED/DONE/BLOCKED/HANDOFF | what happened | files`
 
-- HH:MM | V0-S1 | STARTED |
+- 18:35 | V0-S0 | DONE | Froze MVP-SCOPE.md at 18:30 (Gate 0); created root .env.example matching backend config, contracts/.env.example, scripts/.env.example; verified check-hardcoded.sh OK | md/MVP-SCOPE.md, .env.example, contracts/.env.example, scripts/.env.example, docs/
 
 ## Notes for the pitch
 

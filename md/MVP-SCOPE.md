@@ -3,7 +3,7 @@
 > Written at the end of Hour 0 planning and frozen at the start of execution.
 > Changes after the freeze need both members (HARSH + SPARSH) to agree, and get logged in §10.
 
-**Status:** `DRAFT` → `FROZEN at HH:MM` (edit when frozen)
+**Status:** `FROZEN at 18:30 (Cascade 26 Gate 0)`
 **Event:** CASCADE '26 (IIIT Nagpur, TantraFiesta 2026) · 24h offline · **~20h left at planning time**
 **PS:** Theme 4 · Problem 3 — *The Identity Monopoly: Decentralized Portable Proofs*
 
