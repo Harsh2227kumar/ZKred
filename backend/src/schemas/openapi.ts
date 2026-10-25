@@ -19,6 +19,19 @@ import {
 } from "./issuance.schema";
 import { Issuer, IssuerCreate, IssuerKey, IssuerList, IssuerParams } from "./issuers.schema";
 import {
+  ParseIn,
+  ParseOut,
+  Presentation,
+  PresentationRequest,
+  RequestCreate,
+  RequestParams,
+  Verification,
+  VerificationList,
+  Verifier,
+  VerifierCreate,
+  VerifierList,
+} from "./verifiers.schema";
+import {
   Backup,
   BackupIn,
   CredentialOffer,
@@ -200,6 +213,57 @@ registry.registerPath({
   security: wallet,
   request: { params: WalletParams },
   responses: { 200: json(Backup, "The latest backup"), ...errorResponses },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/verifiers",
+  tags: ["verifiers"],
+  request: { body: json(VerifierCreate, "New verifier") },
+  responses: { 201: json(Verifier, "Verifier created"), ...errorResponses },
+});
+registry.registerPath({
+  method: "get",
+  path: "/verifiers",
+  tags: ["verifiers"],
+  responses: { 200: json(VerifierList, "All verifiers"), ...errorResponses },
+});
+registry.registerPath({
+  method: "post",
+  path: "/presentation-requests/parse",
+  tags: ["verifiers"],
+  description: "501 NOT_IMPLEMENTED until V1.1-H3",
+  request: { body: json(ParseIn, "Plain-English requirement") },
+  responses: { 200: json(ParseOut, "Policy built by Claude"), ...errorResponses },
+});
+registry.registerPath({
+  method: "post",
+  path: "/presentation-requests",
+  tags: ["verifiers"],
+  request: { body: json(RequestCreate, "Policy to request") },
+  responses: { 201: json(PresentationRequest, "Request with a fresh nonce and wallet link"), ...errorResponses },
+});
+registry.registerPath({
+  method: "get",
+  path: "/presentation-requests/{request_id}",
+  tags: ["verifiers"],
+  request: { params: RequestParams },
+  responses: { 200: json(PresentationRequest, "The request (410 REQUEST_EXPIRED once expired)"), ...errorResponses },
+});
+registry.registerPath({
+  method: "post",
+  path: "/presentation-requests/{request_id}/presentations",
+  tags: ["verifiers"],
+  description: "501 NOT_IMPLEMENTED until V1.1-H2",
+  request: { params: RequestParams, body: json(Presentation, "Presentation built by zk-core in the wallet") },
+  responses: { 200: json(Verification, "Verification result (rejections are 200 too)"), ...errorResponses },
+});
+registry.registerPath({
+  method: "get",
+  path: "/presentation-requests/{request_id}/verifications",
+  tags: ["verifiers"],
+  request: { params: RequestParams },
+  responses: { 200: json(VerificationList, "Verifications of this request, newest first"), ...errorResponses },
 });
 
 export function buildOpenApiDocument() {
