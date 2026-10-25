@@ -1,5 +1,12 @@
 // Test-only environment. Secrets/keys/addresses are generated per run (no literals, AGENTS.md §2).
-// Dependencies point at closed local ports unless TEST_DATABASE_URL is given, so health reports "down" fast.
+// Dependencies point at closed local ports unless real ones are given, so health reports "down" fast.
+//
+// Integration suites (test/integration/**) run only when these are set; otherwise they are skipped:
+//   TEST_DATABASE_URL                 Postgres (migrations are applied by test/global-setup.ts)
+//   TEST_CHAIN_RPC_URL                a local chain, e.g. `pnpm --filter contracts node`
+//   TEST_ACCREDITOR_PRIVATE_KEY       the deployer of the registries on that chain (a funded dev account)
+//   TEST_ISSUER_REGISTRY_ADDRESS / TEST_ANCHOR_REGISTRY_ADDRESS / TEST_STATUS_REGISTRY_ADDRESS
+//                                     from `pnpm --filter contracts deploy:local`
 import { randomBytes } from "node:crypto";
 import { Wallet } from "ethers";
 
@@ -16,13 +23,14 @@ Object.assign(process.env, {
   KEY_ENCRYPTION_SECRET: secret(),
   GOVERNANCE_KEY_ENCRYPTION_SECRET: secret(),
   DEMO_MODE: "true",
-  CHAIN_ID: "31337",
+  CHAIN_ID: process.env.TEST_CHAIN_ID ?? "31337",
   CHAIN_NETWORK_NAME: "Hardhat (test)",
-  CHAIN_RPC_URL: "http://127.0.0.1:1",
-  ACCREDITOR_PRIVATE_KEY: Wallet.createRandom().privateKey,
-  ISSUER_REGISTRY_ADDRESS: address(),
-  ANCHOR_REGISTRY_ADDRESS: address(),
-  STATUS_REGISTRY_ADDRESS: address(),
+  CHAIN_RPC_URL: process.env.TEST_CHAIN_RPC_URL ?? "http://127.0.0.1:1",
+  ACCREDITOR_PRIVATE_KEY: process.env.TEST_ACCREDITOR_PRIVATE_KEY ?? Wallet.createRandom().privateKey,
+  ISSUER_REGISTRY_ADDRESS: process.env.TEST_ISSUER_REGISTRY_ADDRESS ?? address(),
+  ANCHOR_REGISTRY_ADDRESS: process.env.TEST_ANCHOR_REGISTRY_ADDRESS ?? address(),
+  STATUS_REGISTRY_ADDRESS: process.env.TEST_STATUS_REGISTRY_ADDRESS ?? address(),
+  CHAIN_POLL_INTERVAL_MS: "100",
   EXPLORER_TX_URL_TEMPLATE: "http://127.0.0.1/tx/{tx}",
   BREACH_WINDOW_SECONDS: "900",
   ZK_ARTIFACTS_DIR: "../circuits/build",

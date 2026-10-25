@@ -3,8 +3,8 @@
 **Role:** Lead · backend API + DB · crypto core (zk-core) · smart contracts · ZK circuit · Bedrock AI · contract owner · merges PRs
 **Owns:** `backend/`, `packages/zk-core/`, `contracts/`, `circuits/`, `md/CONTRACTS.md`, root workspace files
 **AI tools:** Claude Code (Pro; budget it for crypto/engine work) + free tools for boilerplate
-**Current branch:** `harsh/V0-fixes-after-integration`
-**Current task:** `V0` wrap-up (Gate G0)
+**Current branch:** `harsh/V1-H1-issuers-chain`
+**Current task:** `V1-H1` issuers, keys, chain
 
 > Only HARSH (and HARSH's AI agent) edits this file. Append; don't rewrite history.
 > Read the bottom of this file aloud at every sync.
@@ -20,6 +20,7 @@
 | V0-H3 | Contracts + tests + Base Sepolia deploy | DONE (deployed; contracts/deployments/baseSepolia.json) | #2, #9 |
 | V0-H4 | age_gte circuit + committed artifacts | DONE | |
 | V0-H5 | zk-core skeleton + BBS spike + walletCrypto | DONE (+ age proof wired to the V0-H4 circuit) | |
+| V1-H1 | integrations/chain.ts + issuers & keys endpoints | DONE | |
 
 ## Blocked on
 
@@ -36,6 +37,7 @@
 | 16:06 | SPARSH | In V0-S2, the backend container must run `pnpm --filter backend db:migrate` before `start`; build context = repo root (backend imports `@zkred/zk-core` from source) | backend runs TS via tsx | done (backend.Dockerfile CMD) |
 | 16:40 | SPARSH | Create `contracts/.env.example` with `DEPLOYER_PRIVATE_KEY`, `BASE_SEPOLIA_RPC_URL`, `BASESCAN_API_KEY` (CONTRACTS §6). If your laptop also blocks native `.node` files, use `bash contracts/scripts/in-docker.sh test` | needed for deploy | done by HARSH (V0-H3 hardening, on request) |
 | 16:06 | SPARSH | `.env.example` additions beyond CONTRACTS §6 are optional: `LOG_LEVEL`, `AI_HEALTH_TTL_MS`, `HEALTH_CHECK_TIMEOUT_MS` | new optional config knobs | done (.env.example) |
+| V1-H1 | SPARSH | Optional `.env.example` keys `CHAIN_TX_TIMEOUT_MS` (120000), `CHAIN_POLL_INTERVAL_MS` (1000). CI (V1.3-S2): run backend tests with `TEST_DATABASE_URL`, `TEST_CHAIN_RPC_URL`, `TEST_ACCREDITOR_PRIVATE_KEY`, `TEST_{ISSUER,ANCHOR,STATUS}_REGISTRY_ADDRESS` (Postgres service + `pnpm --filter contracts node` + `deploy:local`) so the integration suites run instead of skipping | optional knobs; integration tests | |
 
 ## Contract change requests
 
@@ -67,3 +69,4 @@ Format: `HH:MM | TASK-ID | STARTED/DONE/BLOCKED/HANDOFF | what happened | files`
 - *How do you isolate forged degrees without revoking everyone?* Issuance time comes from the on-chain batch anchor (block time, which can't be backdated). After `markCompromised(key, now − 48h)`, only credentials in batches anchored before the cutoff stay valid; honest in-window holders refresh via re-issue, which checks the registrar's own records, so forgeries can't be laundered.
 - *Does revocation leak who was revoked?* No. Verifiers download the whole 16k-entry bitstring, and only its hash is on-chain.
 - *What still links presentations?* In V1 the batch commitment + status index are revealed (k-anonymity within a batch). V2 replaces this with ZK Merkle membership + ZK non-revocation.
+- 16:45 | V1-H1 | DONE | integrations/chain.ts: registerIssuer/fundGovernance/addKey/rotateKey + getIssuer/getKey; txs serialised per signer (no nonce races), ChainError CHAIN_UNAVAILABLE / CHAIN_TX_FAILED(tx_hash). POST/GET /issuers, GET /issuers/{id}, POST .../keys/rotate (admin token, constant-time); BBS + governance keys AES-256-GCM at rest with row-bound AAD; active_from = chain block time; per-issuer lock (no double-active key). Integration suites (real Postgres + Hardhat node) skip unless TEST_* env is set. 29 backend tests green with DB + chain. New: backend/test/integration, backend/src/keyed-lock.ts | files: backend/src/{config.ts,keyed-lock.ts,api/*,core/{auth,issuers,secrets-at-rest}.ts,db/{errors.ts,repositories/issuers.repo.ts},integrations/chain.ts,schemas/*}, backend/test/**, md/CONTRACTS.md

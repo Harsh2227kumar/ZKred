@@ -21,3 +21,13 @@ export const ErrorResponse = z
   .meta({ id: "ErrorResponse" });
 
 export const EnumOption = z.object({ value: z.string(), label: z.string() }).meta({ id: "EnumOption" });
+
+export const Base64url = z
+  .string()
+  .regex(/^[A-Za-z0-9_-]*$/)
+  .meta({ id: "Base64url", description: "base64url (no padding)" });
+
+export const DateTime = z.iso.datetime().meta({ id: "DateTime", description: "ISO-8601 UTC timestamp" });
+
+/** Path/query param for a DB id. */
+export const Uuid = z.uuid();

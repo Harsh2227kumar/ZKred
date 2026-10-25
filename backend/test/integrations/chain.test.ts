@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { config } from "../../src/config";
-import { chainHealth, provider } from "../../src/integrations/chain";
+import { ChainError, chainHealth, getIssuer, issuerChainIdForDid, provider } from "../../src/integrations/chain";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -32,5 +32,14 @@ describe("chainHealth", () => {
     const missing = config.ANCHOR_REGISTRY_ADDRESS.toLowerCase();
     fakeRpc(config.CHAIN_ID, (address) => (address.toLowerCase() === missing ? "0x" : DEPLOYED_CODE));
     await expect(chainHealth()).rejects.toThrow(/ANCHOR_REGISTRY_ADDRESS/);
+  });
+});
+
+describe("registry reads fail closed", () => {
+  it("an unreachable RPC → ChainError CHAIN_UNAVAILABLE (502), never a default value", async () => {
+    vi.spyOn(provider, "send").mockRejectedValue(new Error("connect ECONNREFUSED"));
+    const err = await getIssuer(issuerChainIdForDid("did:zkred:any")).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ChainError);
+    expect(err).toMatchObject({ code: "CHAIN_UNAVAILABLE", status: 502 });
   });
 });

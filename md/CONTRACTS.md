@@ -465,6 +465,8 @@ Code reads these **only** through `backend/src/config.ts` / `frontend/src/config
 | `STATUS_REGISTRY_ADDRESS` | yes | `0x…` | |
 | `EXPLORER_TX_URL_TEMPLATE` | yes | `https://<explorer>/tx/{tx}` | UI links |
 | `ISSUER_GAS_FUNDING_WEI` | no (`2000000000000000`) | int string | gas sent to each new gov wallet |
+| `CHAIN_TX_TIMEOUT_MS` | no (`120000`) | int | max wait for a tx to be mined before `CHAIN_UNAVAILABLE` |
+| `CHAIN_POLL_INTERVAL_MS` | no (`1000`) | int | how often ethers polls for new blocks / receipts |
 | `BREACH_WINDOW_SECONDS` | no (`172800` = 48h) | int; demo e.g. `900` | default compromise window |
 | `REQUEST_TTL_SECONDS` | no (`900`) | int | presentation request expiry |
 | `STATUS_LIST_SIZE` | no (`16384`) | int | herd-privacy list size |
@@ -519,3 +521,4 @@ Code reads these **only** through `backend/src/config.ts` / `frontend/src/config
 | V0-H5 | zk-core additive exports: `CREDENTIAL_TYPES`, `MANDATORY_REVEAL_MAX_INDEX`, `ISSUER_KINDS`, `PREDICATE_TYPES`, `PresentationRequirement`, `PresentationItem`, `dateToDays`, `ageCutoffDays`, `randomDobSalt`. Poseidon via poseidon-lite (circomlibjs's entry point crashes browser bundles; outputs cross-checked in tests). `verifyAgeGte` checks the Groth16 proof only; the verifier compares `cutoff_days` and `dob_commitment` itself | No (additive) | |
 | V0-H2 | `CredentialSchema.fields[].source` added (meta / claim / derived) so the issue form renders only claim fields | No (additive) | |
 | V0-review | `Presentation.items[].age_proof.public_signals`: exactly 2 canonical decimal strings; `verifyAgeGte` returns false for any public signal that is not a canonical BN254 field element (closes a mod-r aliasing bypass of the cutoff check). DB: FK + unique `(status_list_id, status_index)` + FK indexes (migration 0001), no column changes | No (tightens validation only) | |
+| V1-H1 | Optional env vars `CHAIN_TX_TIMEOUT_MS`, `CHAIN_POLL_INTERVAL_MS` (defaults in `backend/src/config.ts`). Issuer endpoints live: `accredited` and key epochs come from IssuerRegistry; `active_from` = block time of the `addKey`/`rotateKey` tx. `GET /issuers*` returns `502 CHAIN_UNAVAILABLE` when the RPC is down (no guessed `accredited`) | No (additive) | |
