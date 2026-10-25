@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, NavLink } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Key, PlusCircle, FileText, Layers } from 'lucide-react';
+import { ArrowLeft, Key, PlusCircle, FileText, Layers, GraduationCap } from 'lucide-react';
 import { ChainName } from '@/components/common/ChainName';
 import { pendingEndpoint } from '@/api/client';
 import { Loading } from '@/components/common/Loading';
@@ -17,32 +17,34 @@ export const IssuerDetailPage: React.FC = () => {
 
   const { data: issuer, isLoading, error, refetch } = useQuery<Issuer>({
     queryKey: ['issuer', issuerId],
-    // GET /issuers/{id} is built in V1-H1; switch to apiClient.GET('/issuers/{id}') then.
     queryFn: () => pendingEndpoint<Issuer>('V1-H1'),
     enabled: Boolean(issuerId),
     retry: false,
   });
 
-  if (isLoading) return <Loading label="Loading issuer details..." />;
+  if (isLoading) return <Loading label="Loading institution details..." />;
   if (error) return <ErrorState error={error} onRetry={() => refetch()} />;
-  if (!issuer) return <EmptyState title="Issuer not found" description="The requested issuer ID was not found." />;
+  if (!issuer) return <EmptyState title="Institution not found" description="The requested institution record was not found." />;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-6xl mx-auto">
       {/* Back button + Header */}
-      <div className="space-y-4 pb-6 border-b border-border/40">
-        <NavLink to="/issuer" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
-          <ArrowLeft className="w-3.5 h-3.5" /> Back to Issuers
+      <div className="space-y-4 pb-6 border-b border-[#231a3d]">
+        <NavLink to="/issuer" className="inline-flex items-center gap-1.5 text-xs text-[#8ea5a8] hover:text-[#f0f7f7] transition-colors">
+          <ArrowLeft className="w-3.5 h-3.5" /> Back to Institutions
         </NavLink>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold tracking-tight text-foreground">{issuer.name}</h1>
-              <span className="text-xs uppercase font-mono px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">
+              <div className="w-9 h-9 rounded-2xl bg-[#06838d]/15 text-[#79bab6] flex items-center justify-center">
+                <GraduationCap className="w-5 h-5" />
+              </div>
+              <h1 className="text-2xl font-semibold tracking-tight text-[#f0f7f7]">{issuer.name}</h1>
+              <span className="text-xs uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[#130e24] text-[#79bab6] border border-[#06838d]/30 font-medium">
                 {issuer.kind}
               </span>
             </div>
-            <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2 mt-2 text-xs text-[#8ea5a8]">
               <span>DID:</span>
               <Hex value={issuer.did} prefixLen={12} suffixLen={8} />
             </div>
@@ -50,8 +52,8 @@ export const IssuerDetailPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-border/40">
+      {/* Segmented Control Tabs */}
+      <div className="inline-flex items-center p-1 rounded-2xl bg-[#130e24] border border-[#231a3d]">
         {[
           { id: 'keys', label: 'Keys & Epochs', icon: Key },
           { id: 'issue', label: 'Issue Credential', icon: PlusCircle },
@@ -64,13 +66,13 @@ export const IssuerDetailPage: React.FC = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as typeof activeTab)}
-              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all cursor-pointer ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all cursor-pointer ${
                 isActive
-                  ? 'border-primary text-primary font-semibold'
-                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+                  ? 'bg-[#231a3d] text-[#f0f7f7] shadow-xs'
+                  : 'text-[#8ea5a8] hover:text-[#f0f7f7]'
               }`}
             >
-              <Icon className="w-4 h-4" />
+              <Icon className="w-3.5 h-3.5 opacity-80" />
               <span>{tab.label}</span>
             </button>
           );
@@ -81,42 +83,42 @@ export const IssuerDetailPage: React.FC = () => {
       {activeTab === 'keys' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider font-mono">BBS+ Signing Keys</h3>
+            <h3 className="text-xs font-semibold text-[#8ea5a8] uppercase tracking-wider">Signing Key Epochs</h3>
           </div>
-          <div className="rounded-xl border border-border/60 bg-card overflow-hidden">
+          <div className="rounded-3xl border border-[#231a3d] bg-[#130e24] overflow-hidden">
             <table className="w-full text-left text-sm">
-              <thead className="bg-muted/50 text-xs font-mono uppercase text-muted-foreground border-b border-border/40">
+              <thead className="bg-black/40 text-xs uppercase tracking-wider text-[#8ea5a8] border-b border-[#231a3d]">
                 <tr>
-                  <th className="p-3.5">Key ID</th>
-                  <th className="p-3.5">Status</th>
-                  <th className="p-3.5">Active from</th>
-                  <th className="p-3.5">On-Chain Tx</th>
+                  <th className="p-4">Key ID</th>
+                  <th className="p-4">Status</th>
+                  <th className="p-4">Active From</th>
+                  <th className="p-4">On-Chain Tx</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border/40">
+              <tbody className="divide-y divide-[#231a3d]">
                 {issuer.keys?.map((k) => (
-                  <tr key={k.key_id} className="hover:bg-muted/30 transition-colors">
-                    <td className="p-3.5 font-mono text-xs">
+                  <tr key={k.key_id} className="hover:bg-[#1a1430] transition-colors">
+                    <td className="p-4 font-mono text-xs">
                       <Hex value={k.key_id} />
                     </td>
-                    <td className="p-3.5">
+                    <td className="p-4">
                       <span
-                        className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                        className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${
                           k.status === 'active'
-                            ? 'bg-emerald-500/10 text-emerald-500'
+                            ? 'bg-[#06838d]/15 text-[#79bab6] border border-[#06838d]/30'
                             : k.status === 'compromised'
-                            ? 'bg-rose-500/10 text-rose-500'
-                            : 'bg-muted text-muted-foreground'
+                            ? 'bg-[#ff453a]/10 text-[#ff453a] border border-[#ff453a]/20'
+                            : 'bg-[#231a3d] text-[#8ea5a8]'
                         }`}
                       >
                         {k.status}
                       </span>
                     </td>
-                    <td className="p-3.5 text-xs text-muted-foreground">
+                    <td className="p-4 text-xs text-[#8ea5a8]">
                       {new Date(k.active_from).toLocaleDateString()}
                     </td>
-                    <td className="p-3.5 text-xs font-mono">
-                      {k.tx_hash ? <TxLink hash={k.tx_hash} /> : <span className="text-muted-foreground">—</span>}
+                    <td className="p-4 text-xs font-mono">
+                      {k.tx_hash ? <TxLink hash={k.tx_hash} /> : <span className="text-[#8ea5a8]">—</span>}
                     </td>
                   </tr>
                 ))}
@@ -127,27 +129,27 @@ export const IssuerDetailPage: React.FC = () => {
       )}
 
       {activeTab === 'issue' && (
-        <div className="p-8 rounded-xl border border-dashed border-border text-center space-y-3">
-          <h4 className="font-semibold text-foreground">Dynamic Credential Issuance Form</h4>
-          <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            Loads credential schemas dynamically from <code className="text-xs bg-muted px-1.5 py-0.5 rounded">/meta/credential-schemas</code> and resolves recipient wallet via <code className="text-xs bg-muted px-1.5 py-0.5 rounded">/wallets/lookup</code>.
+        <div className="p-8 rounded-3xl border border-dashed border-[#231a3d] bg-[#130e24] text-center space-y-3">
+          <h4 className="font-semibold text-[#f0f7f7]">Dynamic Credential Issuance</h4>
+          <p className="text-xs text-[#8ea5a8] max-w-md mx-auto leading-relaxed">
+            Loads credential schemas dynamically from <code className="text-xs bg-[#090614] px-2 py-0.5 rounded border border-[#231a3d] text-[#f0f7f7]">/meta/credential-schemas</code> and resolves student wallet via lookup.
           </p>
         </div>
       )}
 
       {activeTab === 'issued' && (
-        <div className="p-8 rounded-xl border border-dashed border-border text-center space-y-3">
-          <h4 className="font-semibold text-foreground">Issued Credentials History</h4>
-          <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            Lists all issued credentials with their status indices and revocation options.
+        <div className="p-8 rounded-3xl border border-dashed border-[#231a3d] bg-[#130e24] text-center space-y-3">
+          <h4 className="font-semibold text-[#f0f7f7]">Issued Academic Credentials</h4>
+          <p className="text-xs text-[#8ea5a8] max-w-md mx-auto leading-relaxed">
+            Historical list of issued diplomas, student cards, and certificates with real-time status indices.
           </p>
         </div>
       )}
 
       {activeTab === 'batches' && (
-        <div className="p-8 rounded-xl border border-dashed border-border text-center space-y-3">
-          <h4 className="font-semibold text-foreground">Merkle Batches & On-Chain Anchors</h4>
-          <p className="text-sm text-muted-foreground max-w-md mx-auto">
+        <div className="p-8 rounded-3xl border border-dashed border-[#231a3d] bg-[#130e24] text-center space-y-3">
+          <h4 className="font-semibold text-[#f0f7f7]">Merkle Batches & On-Chain Anchors</h4>
+          <p className="text-xs text-[#8ea5a8] max-w-md mx-auto leading-relaxed">
             Shows batch Merkle roots, leaf counts, and <ChainName /> anchor transactions.
           </p>
         </div>

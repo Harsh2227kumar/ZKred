@@ -22,39 +22,43 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-mint: #79bab6;
+  --color-teal: #06838d;
+  --color-navy: #014f85;
+  --color-plum: #2e036b;
 }
 
 @layer base {
   :root {
-    --background: #090a0f;
-    --foreground: #f8fafc;
+    --background: #090614;
+    --foreground: #f0f7f7;
 
-    --card: #11131a;
-    --card-foreground: #f8fafc;
+    --card: #130e24;
+    --card-foreground: #f0f7f7;
 
-    --popover: #11131a;
-    --popover-foreground: #f8fafc;
+    --popover: #130e24;
+    --popover-foreground: #f0f7f7;
 
-    --primary: #8b5cf6;
+    --primary: #06838d;
     --primary-foreground: #ffffff;
 
-    --secondary: #1e2230;
-    --secondary-foreground: #f8fafc;
+    --secondary: #014f85;
+    --secondary-foreground: #ffffff;
 
-    --muted: #1e212b;
-    --muted-foreground: #94a3b8;
+    --muted: #1a1430;
+    --muted-foreground: #8ea5a8;
 
-    --accent: #2e1065;
-    --accent-foreground: #ddd6fe;
+    --accent: #2e036b;
+    --accent-foreground: #79bab6;
 
-    --destructive: #ef4444;
+    --destructive: #ff453a;
     --destructive-foreground: #ffffff;
 
-    --border: #262935;
-    --input: #262935;
-    --ring: #8b5cf6;
+    --border: #231a3d;
+    --input: #1a1430;
+    --ring: #79bab6;
 
-    --radius: 0.75rem;
+    --radius: 1rem;
   }
 }
 
@@ -62,7 +66,9 @@ body {
   margin: 0;
   background-color: var(--background);
   color: var(--foreground);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", -apple-system-headline, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
 }
 

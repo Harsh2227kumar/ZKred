@@ -1,75 +1,77 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Wallet, ShieldCheck, Download, Inbox, KeyRound } from 'lucide-react';
 import { EmptyState } from '@/components/common/EmptyState';
 import { Hex } from '@/components/common/Hex';
 
 export const WalletPage: React.FC = () => {
-  // Wallet creation (POST /wallets + zk-core walletCrypto + IndexedDB) lands in V1-S2; until then there is no wallet.
+  // Wallet creation lands in V1-S2; until then we show the setup screen.
   const [hasWallet] = useState(false);
   const [walletId] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string>('');
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-5xl mx-auto">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-border/40">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-[#231a3d]">
         <div>
-          <div className="flex items-center gap-2">
-            <Wallet className="w-6 h-6 text-violet-500" />
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">Holder Wallet</h1>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-[#06838d]/15 text-[#79bab6] flex items-center justify-center">
+              <Wallet className="w-4.5 h-4.5" />
+            </div>
+            <h1 className="text-2xl font-semibold tracking-tight text-[#f0f7f7]">Student Wallet</h1>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">
-            Zero-knowledge credentials held exclusively in your browser (IndexedDB).
+          <p className="text-sm text-[#8ea5a8] mt-1">
+            Zero-knowledge credentials held and verified exclusively on your device.
           </p>
         </div>
 
         {hasWallet && (
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-mono text-muted-foreground">Wallet ID:</span>
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#130e24] border border-[#231a3d]">
+            <span className="text-xs text-[#8ea5a8]">Wallet ID:</span>
             <Hex value={walletId || ''} prefixLen={8} suffixLen={6} />
           </div>
         )}
       </div>
 
       {!hasWallet ? (
-        <div className="max-w-md mx-auto p-8 rounded-2xl border border-border/60 bg-card space-y-6 shadow-sm">
+        <div className="max-w-md mx-auto p-8 rounded-3xl border border-[#231a3d] bg-[#130e24] space-y-6">
           <div className="text-center space-y-2">
-            <div className="w-12 h-12 rounded-xl bg-violet-500/10 text-violet-500 mx-auto flex items-center justify-center">
+            <div className="w-12 h-12 rounded-2xl bg-[#06838d]/15 text-[#79bab6] mx-auto flex items-center justify-center">
               <KeyRound className="w-6 h-6" />
             </div>
-            <h2 className="text-xl font-bold text-foreground">Setup Your ZK Wallet</h2>
-            <p className="text-xs text-muted-foreground">
-              Your cryptographic keys are generated in WebCrypto and stored client-side. The server never learns your private keys or claims.
+            <h2 className="text-xl font-semibold text-[#f0f7f7]">Create Student Wallet</h2>
+            <p className="text-xs text-[#8ea5a8] leading-relaxed">
+              Your cryptographic keys are generated in your browser and never sent to a server. You maintain full ownership of your credentials.
             </p>
           </div>
 
           <div className="space-y-4">
             <div>
-              <label className="text-xs font-medium text-foreground block mb-1">Display Name</label>
+              <label className="text-xs font-medium text-[#f0f7f7] block mb-1.5">Student Handle / Name</label>
               <input
                 type="text"
-                placeholder="Name issuers will look you up by"
+                placeholder="e.g. alex.student"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-violet-500 focus:outline-hidden"
+                className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-[#231a3d] bg-[#090614] text-[#f0f7f7] placeholder-[#8ea5a8] focus:border-[#79bab6] focus:outline-hidden"
               />
             </div>
 
             <div>
-              <label className="text-xs font-medium text-foreground block mb-1">Passphrase (min 10 characters)</label>
+              <label className="text-xs font-medium text-[#f0f7f7] block mb-1.5">Backup Passphrase (min 10 characters)</label>
               <input
                 type="password"
-                placeholder="Passphrase for client-side encrypted backup"
-                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-violet-500 focus:outline-hidden"
+                placeholder="Enter a secure recovery passphrase"
+                className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-[#231a3d] bg-[#090614] text-[#f0f7f7] placeholder-[#8ea5a8] focus:border-[#79bab6] focus:outline-hidden"
               />
             </div>
 
             <button
               type="button"
               disabled
-              className="w-full py-2.5 rounded-lg text-sm font-semibold bg-violet-600/40 text-white cursor-not-allowed shadow-xs"
+              className="w-full py-3 rounded-xl text-sm font-medium bg-[#06838d]/40 text-white cursor-not-allowed transition-all"
             >
-              Create Browser Wallet (arrives in V1)
+              Initialize Wallet (Available in V1)
             </button>
           </div>
         </div>
@@ -77,42 +79,42 @@ export const WalletPage: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Credentials Area */}
           <div className="lg:col-span-2 space-y-4">
-            <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider font-mono">My Credentials</h3>
+            <h3 className="text-xs font-semibold text-[#8ea5a8] uppercase tracking-wider">My Digital Credentials</h3>
             <EmptyState
               title="No credentials claimed yet"
-              description="Check your inbox on the right for incoming credential offers from issuers."
-              icon={<ShieldCheck className="w-8 h-8 text-violet-500" />}
+              description="Your claimed student cards, degrees, and certificates will appear here."
+              icon={<ShieldCheck className="w-8 h-8 text-[#79bab6]" />}
             />
           </div>
 
           {/* Sidebar: Inbox & Backup */}
-          <div className="space-y-6">
-            <div className="p-5 rounded-xl border border-border/60 bg-card space-y-4">
+          <div className="space-y-4">
+            <div className="p-5 rounded-3xl border border-[#231a3d] bg-[#130e24] space-y-3">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm font-bold text-foreground">
-                  <Inbox className="w-4 h-4 text-violet-500" />
-                  <span>Credential Inbox</span>
+                <div className="flex items-center gap-2 text-sm font-semibold text-[#f0f7f7]">
+                  <Inbox className="w-4 h-4 text-[#79bab6]" />
+                  <span>Offers Inbox</span>
                 </div>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-500 font-semibold font-mono">0</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-[#231a3d] text-[#8ea5a8] font-medium">0</span>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Incoming offers from universities and medical councils arrive here encrypted with your wallet public key.
+              <p className="text-xs text-[#8ea5a8] leading-relaxed">
+                Official credential offers from your university or college will arrive here encrypted with your public key.
               </p>
             </div>
 
-            <div className="p-5 rounded-xl border border-border/60 bg-card space-y-3">
-              <div className="flex items-center gap-2 text-sm font-bold text-foreground">
-                <Download className="w-4 h-4 text-primary" />
+            <div className="p-5 rounded-3xl border border-[#231a3d] bg-[#130e24] space-y-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-[#f0f7f7]">
+                <Download className="w-4 h-4 text-[#79bab6]" />
                 <span>Encrypted Backup</span>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Synced to server as AES-GCM encrypted ciphertext. Only your passphrase can decrypt it.
+              <p className="text-xs text-[#8ea5a8] leading-relaxed">
+                Store an encrypted ciphertext copy using your passphrase. The server cannot read your backup.
               </p>
               <button
                 type="button"
-                className="w-full py-2 text-xs font-semibold rounded-lg border border-border text-foreground hover:bg-muted transition-colors cursor-pointer"
+                className="w-full py-2 text-xs font-medium rounded-xl border border-[#231a3d] text-[#f0f7f7] hover:bg-[#1a1430] transition-colors cursor-pointer"
               >
-                Sync Encrypted Backup Now
+                Sync Encrypted Backup
               </button>
             </div>
           </div>
