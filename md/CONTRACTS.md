@@ -472,7 +472,7 @@ Code reads these **only** through `backend/src/config.ts` / `frontend/src/config
 | `AGE_PROOF_MAX_SKEW_DAYS` | no (`1`) | int | days a proof's `cutoff_days` may exceed the verifier's own cutoff (clock drift) |
 | `ZK_ARTIFACTS_DIR` | yes | path to `circuits/build` | vkey for server verification |
 | `AWS_REGION` | yes | Bedrock region | Bedrock client |
-| `BEDROCK_MODEL_ID` | yes | e.g. `anthropic.claude-sonnet-5-5` (confirm in the Bedrock console; can be an inference-profile id) | Claude model |
+| `BEDROCK_MODEL_ID` | yes | inference-profile id, e.g. `global.anthropic.claude-sonnet-4-6` (a bare `anthropic.…` id fails with "on-demand throughput isn’t supported") | Claude model |
 | `AWS_BEARER_TOKEN_BEDROCK` | one of these | Bedrock API key | auth option A |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | one of these | IAM keys (or EC2 instance role: none needed) | auth option B |
 | `AI_TIMEOUT_MS` | no (`30000`) | int | |
