@@ -43,6 +43,15 @@ export type Backup = Schemas['Backup'];
 export type BackupIn = Schemas['BackupIn'];
 export type ReissueIn = Schemas['ReissueIn'];
 
+// Local request shape for POST /wallets (kept for the V1-S2 wallet call sites)
+export interface WalletCreateIn {
+  display_name: string;
+  enc_public_key: string;
+}
+
+// Alias kept for the V1-S2 wallet call sites
+export type OffersListResponse = Schemas['CredentialOfferList'];
+
 export type Verifier = Schemas['Verifier'];
 export type ParseOut = Schemas['ParseOut'];
 export type PresentationPolicy = Schemas['PresentationPolicy'];

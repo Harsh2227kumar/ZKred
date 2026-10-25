@@ -1,127 +1,156 @@
+// frontend/src/features/wallet/components/CredentialCard.tsx
 import React, { useState } from 'react';
-import { toast } from 'sonner';
-import { Eye, EyeOff, GraduationCap, IdCard, Loader2, RefreshCw, Stethoscope, Trash2 } from 'lucide-react';
+import {
+  GraduationCap,
+  ShieldCheck,
+  Eye,
+  EyeOff,
+  Lock,
+  FileBadge,
+  UserCheck,
+} from 'lucide-react';
 import { Hex } from '@/components/common/Hex';
-import { toUserMessage } from '@/api/client';
-import type { StoredCredential } from '@/lib/wallet-store';
-import { displayFields } from '@/lib/zk';
-import type { CredentialStatus } from '../hooks/useCredentialStatus';
+import type { SignedCredential } from '@/lib/wallet-crypto';
+import type { Issuer } from '@/api/schemas';
 
-const typeIcon = { Degree: GraduationCap, GovernmentId: IdCard, MedicalLicense: Stethoscope } as const;
+interface CredentialCardProps {
+  credential: SignedCredential;
+  issuer?: Issuer;
+}
 
-const statusBadge: Record<CredentialStatus['kind'], { label: string; cls: string }> = {
-  active: { label: 'Active', cls: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' },
-  pending_anchor: { label: 'Waiting for anchor', cls: 'bg-amber-500/10 text-amber-500 border-amber-500/20' },
-  revoked: { label: 'Revoked', cls: 'bg-rose-500/10 text-rose-500 border-rose-500/20' },
-  needs_refresh: { label: 'Needs refresh', cls: 'bg-amber-500/10 text-amber-500 border-amber-500/20' },
-  invalid: { label: 'Invalid', cls: 'bg-rose-500/10 text-rose-500 border-rose-500/20' },
-};
+const PII_FIELD_NAMES = new Set([
+  'holder_name',
+  'dob',
+  'address',
+  'grade',
+  'registration_no',
+  'dob_salt',
+]);
 
-export const CredentialCard: React.FC<{
-  stored: StoredCredential;
-  status?: CredentialStatus;
-  /** Refresh writes to the encrypted backup, so it needs the unlocked wallet. */
-  canRefresh: boolean;
-  onRefresh: () => Promise<void>;
-  onRemove: () => Promise<void>;
-}> = ({ stored, status, canRefresh, onRefresh, onRemove }) => {
+export const CredentialCard: React.FC<CredentialCardProps> = ({ credential, issuer }) => {
   const [showPii, setShowPii] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const cred = stored.credential;
-  const Icon = typeIcon[cred.type] ?? IdCard;
-  const replaced = Boolean(stored.replaced_at);
-  const badge = replaced ? { label: 'Replaced', cls: 'bg-muted text-muted-foreground border-border' } : status ? statusBadge[status.kind] : null;
 
-  const refresh = async () => {
-    setRefreshing(true);
-    try {
-      await onRefresh();
-      toast.success('Re-issue requested', { description: 'Check your inbox for the fresh copy.' });
-    } catch (err) {
-      toast.error(toUserMessage(err));
-    } finally {
-      setRefreshing(false);
-    }
+  const credType = credential.type;
+  const values = credential.values || {};
+
+  // Issuer key status check
+  const activeKey = issuer?.keys?.find((k) => k.key_id === credential.key_id);
+  const isKeyActive = activeKey?.status === 'active';
+
+  const formatFieldLabel = (key: string) => {
+    return key
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (c) => c.toUpperCase());
   };
 
   return (
-    <div className="p-5 rounded-xl border border-border/60 bg-card space-y-4">
+    <div className="p-6 rounded-3xl border border-[#231a3d] bg-[#130e24] hover:border-[#06838d]/40 transition-all space-y-5 shadow-xs">
+      {/* Top Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-lg bg-mint/10 text-mint">
-            <Icon className="w-5 h-5" />
+          <div className="w-10 h-10 rounded-2xl bg-[#06838d]/15 text-[#79bab6] flex items-center justify-center">
+            {credType === 'Degree' ? (
+              <GraduationCap className="w-5 h-5" />
+            ) : credType === 'MedicalLicense' ? (
+              <FileBadge className="w-5 h-5" />
+            ) : (
+              <UserCheck className="w-5 h-5" />
+            )}
           </div>
           <div>
-            <h4 className="font-semibold text-foreground">{cred.type}</h4>
-            <span className="text-xs text-muted-foreground">{status?.issuer?.name ?? cred.issuer_did}</span>
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-semibold text-[#f0f7f7]">{credType}</h3>
+              <span className="text-[10px] text-[#79bab6] bg-[#06838d]/15 px-2 py-0.5 rounded-full border border-[#06838d]/25">
+                BBS+ Signed
+              </span>
+            </div>
+            <p className="text-xs text-[#8ea5a8] mt-0.5">
+              Issued by {issuer?.name || credential.issuer_did}
+            </p>
           </div>
         </div>
-        {badge ? (
-          <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${badge.cls}`}>{badge.label}</span>
-        ) : (
-          <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-        )}
+
+        <button
+          onClick={() => setShowPii(!showPii)}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#231a3d] bg-[#090614] hover:bg-[#1a1430] text-[11px] font-medium text-[#8ea5a8] hover:text-[#f0f7f7] transition-colors cursor-pointer"
+        >
+          {showPii ? (
+            <>
+              <EyeOff className="w-3.5 h-3.5 text-[#ff9f0a]" />
+              <span>Hide Private Claims</span>
+            </>
+          ) : (
+            <>
+              <Eye className="w-3.5 h-3.5 text-[#79bab6]" />
+              <span>Show on this Device</span>
+            </>
+          )}
+        </button>
       </div>
 
-      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-xs">
-        {displayFields(cred).map((f) => (
-          <div key={f.name} className="flex flex-col">
-            <dt className="text-muted-foreground">{f.label}</dt>
-            <dd className="font-medium text-foreground break-words">{f.pii && !showPii ? '••••••' : f.value}</dd>
-          </div>
-        ))}
-      </dl>
+      {/* Claims Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+        {Object.entries(values).map(([k, v]) => {
+          // Skip internal BBS meta fields in the claims section
+          if (
+            [
+              'cred_type',
+              'issuer_did',
+              'key_id',
+              'batch_id',
+              'status_list_id',
+              'status_index',
+              'commitment',
+              'dob_commitment',
+            ].includes(k)
+          ) {
+            return null;
+          }
 
-      {status?.kind === 'invalid' && <p className="text-xs text-rose-500">{status.reason}</p>}
-      {replaced ? (
-        <p className="text-xs text-muted-foreground">
-          A refreshed copy was requested on {new Date(stored.replaced_at!).toLocaleString()}. This old copy is never shared; you can remove it.
-        </p>
-      ) : (
-        status?.kind === 'needs_refresh' && (
-          <p className="text-xs text-amber-500">
-            Verifiers no longer accept this copy: it was anchored inside its issuer's key-compromise window, or never anchored before the
-            key was retired. Refresh it to get a copy signed with the issuer's current key.
-          </p>
-        )
-      )}
+          const isPii = PII_FIELD_NAMES.has(k);
 
-      <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-border/40">
-        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <span>Key</span>
-          <Hex value={cred.key_id} />
-        </div>
+          return (
+            <div key={k} className="p-3 rounded-2xl bg-[#090614] border border-[#231a3d] space-y-1">
+              <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-[#8ea5a8]">
+                <span>{formatFieldLabel(k)}</span>
+                {isPii && (
+                  <span className="inline-flex items-center gap-1 text-[10px] text-[#79bab6]">
+                    <Lock className="w-2.5 h-2.5" /> PII
+                  </span>
+                )}
+              </div>
+              <div className="text-xs font-medium text-[#f0f7f7]">
+                {isPii && !showPii ? (
+                  <span className="tracking-widest text-[#8ea5a8]/70 select-none">••••••••</span>
+                ) : (
+                  <span>{String(v)}</span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Technical Evidence Footer */}
+      <div className="pt-3 border-t border-[#231a3d] flex flex-wrap items-center justify-between gap-3 text-[11px] text-[#8ea5a8]">
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setShowPii((s) => !s)}
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs border border-border hover:bg-muted"
-          >
-            {showPii ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-            {showPii ? 'Hide personal fields' : 'Show on this device'}
-          </button>
-          {replaced && (
-            <button
-              type="button"
-              onClick={() => onRemove().catch((err: unknown) => toast.error(toUserMessage(err)))}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs border border-border hover:bg-muted"
-            >
-              <Trash2 className="w-3 h-3" /> Remove old copy
-            </button>
-          )}
-          {!replaced && status?.kind === 'needs_refresh' && (
-            <button
-              type="button"
-              onClick={refresh}
-              disabled={refreshing || !canRefresh}
-              title={canRefresh ? undefined : 'Unlock the wallet first'}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-amber-500 text-white hover:bg-amber-500/90 disabled:opacity-50"
-            >
-              {refreshing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-              Refresh credential
-            </button>
+          <span>Key Epoch:</span>
+          <Hex value={credential.key_id} prefixLen={6} suffixLen={4} />
+          {isKeyActive ? (
+            <span className="inline-flex items-center gap-1 text-[#79bab6]">
+              <ShieldCheck className="w-3 h-3" /> Valid
+            </span>
+          ) : (
+            <span className="text-[#ff9f0a]">Rotated</span>
           )}
         </div>
+
+        {values.commitment && (
+          <div className="flex items-center gap-2">
+            <span>Commitment:</span>
+            <Hex value={values.commitment} prefixLen={6} suffixLen={4} />
+          </div>
+        )}
       </div>
     </div>
   );

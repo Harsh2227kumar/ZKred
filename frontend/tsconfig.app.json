@@ -24,7 +24,8 @@
 
     /* Paths */
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@zkred/zk-core": ["../packages/zk-core/src/index.ts"]
     }
   },
   "include": ["src"]

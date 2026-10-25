@@ -29,6 +29,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+      '@zkred/zk-core': fileURLToPath(new URL('../packages/zk-core/src/index.ts', import.meta.url)),
     },
   },
   // Local dev only: lets VITE_API_BASE_URL=/api/v1 hit the backend started with `pnpm --filter backend dev`,
