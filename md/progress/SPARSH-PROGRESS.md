@@ -15,7 +15,7 @@
 
 | Task ID | Task | Status | PR |
 |---|---|---|---|
-| V0-S0 | Scope freeze & environment templates | DONE | |
+| V0-S0 | Scope freeze & environment templates | DONE | #8 |
 | V0-S1 | Frontend scaffold | TODO | |
 | V0-S2 | docker-compose + Dockerfiles + Caddyfile + .env.examples | TODO | |
 | V0-S3 | GitHub repo settings, CODEOWNERS handles | TODO | |
