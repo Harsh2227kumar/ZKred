@@ -16,7 +16,7 @@
 | Task ID | Task | Status | PR |
 |---|---|---|---|
 | V0-S1 | Frontend scaffold | DONE | #10 |
-| V0-S2 | docker-compose + Dockerfiles + Caddyfile + .env.examples | DONE | |
+| V0-S2 | docker-compose + Dockerfiles + Caddyfile + .env.examples | DONE | #11 |
 | V0-S3 | GitHub repo settings, CODEOWNERS handles | TODO | |
 | V0-S4 | EC2 deploy hello-world | TODO | |
 | V0-S5 | Bedrock model access + credentials | TODO | |
