@@ -1,0 +1,478 @@
+[
+  {
+    "inputs": [],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "compromisedFrom",
+        "type": "uint64"
+      }
+    ],
+    "name": "CutoffInFuture",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "current",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "proposed",
+        "type": "uint64"
+      }
+    ],
+    "name": "CutoffNotEarlier",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "issuerId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "IssuerExists",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "keyId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "KeyExists",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "keyId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "issuerId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "KeyNotOwnedByIssuer",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NotAccreditor",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "issuerId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "NotGovernance",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "issuerId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "UnknownIssuer",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "keyId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "UnknownKey",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "ZeroValue",
+    "type": "error"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "issuerId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "bool",
+        "name": "accredited",
+        "type": "bool"
+      }
+    ],
+    "name": "IssuerAccreditationChanged",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "issuerId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "did",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "governance",
+        "type": "address"
+      }
+    ],
+    "name": "IssuerRegistered",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "issuerId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "keyId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "pubKeyHash",
+        "type": "bytes32"
+      }
+    ],
+    "name": "KeyAdded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "issuerId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "keyId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "compromisedFrom",
+        "type": "uint64"
+      }
+    ],
+    "name": "KeyCompromised",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "issuerId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "oldKeyId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "newKeyId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "KeyRotated",
+    "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "accreditor",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "issuerId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "keyId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "pubKeyHash",
+        "type": "bytes32"
+      }
+    ],
+    "name": "addKey",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "issuerId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "getIssuer",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "did",
+        "type": "string"
+      },
+      {
+        "internalType": "address",
+        "name": "governance",
+        "type": "address"
+      },
+      {
+        "internalType": "bool",
+        "name": "accredited",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "keyId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "getKey",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "issuerId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "pubKeyHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "uint64",
+        "name": "activeFrom",
+        "type": "uint64"
+      },
+      {
+        "internalType": "enum IssuerRegistry.KeyStatus",
+        "name": "status",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint64",
+        "name": "compromisedFrom",
+        "type": "uint64"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "issuerId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "keyId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "isActiveKeyOf",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "issuerId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "isGovernance",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "issuerId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "keyId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "uint64",
+        "name": "compromisedFrom",
+        "type": "uint64"
+      }
+    ],
+    "name": "markCompromised",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "issuerId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "string",
+        "name": "did",
+        "type": "string"
+      },
+      {
+        "internalType": "address",
+        "name": "governance",
+        "type": "address"
+      }
+    ],
+    "name": "registerIssuer",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "issuerId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "oldKeyId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "newKeyId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "newPubKeyHash",
+        "type": "bytes32"
+      }
+    ],
+    "name": "rotateKey",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "issuerId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bool",
+        "name": "accredited",
+        "type": "bool"
+      }
+    ],
+    "name": "setAccredited",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]

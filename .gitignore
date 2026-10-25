@@ -20,3 +20,6 @@ circuits/tmp/
 .vscode/
 .idea/
 frontend/public/zk/
+contracts/types/
+contracts/deployments/hardhatMainnet.json
+contracts/deployments/localhost.json

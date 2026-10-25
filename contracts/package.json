@@ -1,0 +1,29 @@
+{
+  "name": "contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "hardhat build",
+    "test": "hardhat test",
+    "typecheck": "tsc --noEmit",
+    "node": "hardhat node",
+    "deploy:local": "hardhat run --network localhost scripts/deploy.ts",
+    "deploy:base-sepolia": "hardhat run --network baseSepolia scripts/deploy.ts",
+    "docker": "bash scripts/in-docker.sh"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-ethers": "^4.2.1",
+    "@nomicfoundation/hardhat-ethers-chai-matchers": "^3.0.13",
+    "@nomicfoundation/hardhat-network-helpers": "^3.0.12",
+    "@nomicfoundation/hardhat-toolbox-mocha-ethers": "^4.0.0",
+    "@types/chai": "^5.2.3",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^26.6.5",
+    "chai": "^6.3.0",
+    "ethers": "^6.17.0",
+    "hardhat": "^3.21.0",
+    "mocha": "^12.0.3",
+    "typescript": "^7.0.2"
+  }
+}
