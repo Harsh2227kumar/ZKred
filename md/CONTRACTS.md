@@ -138,7 +138,8 @@ ChainInfo
 CredentialSchema
   type: CredentialType
   version: int
-  fields: [{ name: string, label: string, kind: "string" | "date" | "int", pii: boolean, index: int }]   # index = BBS message index
+  fields: [{ name: string, label: string, kind: "string" | "date" | "int", pii: boolean, index: int,
+            source: "meta" | "claim" | "derived" }]   # index = BBS message index; the issue form shows only source="claim"
 
 IssuerCreate
   name: string (2-120)
@@ -512,3 +513,4 @@ Code reads these **only** through `backend/src/config.ts` / `frontend/src/config
 |---|---|---|---|
 | H0 | Initial draft | — | |
 | H2 | Initial freeze | — | |
+| V0-H2 | `CredentialSchema.fields[].source` added (meta / claim / derived) so the issue form renders only claim fields | No (additive) | |
