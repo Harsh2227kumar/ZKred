@@ -1,5 +1,5 @@
 // verifiers, presentation_requests, verifications.
-import { asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, isNull } from "drizzle-orm";
 import { db } from "../client";
 import { presentationRequests, verifications, verifiers } from "../schema";
 
@@ -44,4 +44,24 @@ export async function listVerifications(requestId: string): Promise<Verification
     .from(verifications)
     .where(eq(verifications.requestId, requestId))
     .orderBy(desc(verifications.createdAt));
+}
+
+/**
+ * Stores a verification. An accepted one also consumes the request nonce in the same transaction; if another
+ * presentation consumed it first, nothing is stored and null is returned (the caller answers NONCE_USED).
+ */
+export async function recordVerification(row: typeof verifications.$inferInsert, now: Date): Promise<VerificationRow | null> {
+  return db.transaction(async (tx) => {
+    if (row.result === "accepted") {
+      const [consumed] = await tx
+        .update(presentationRequests)
+        .set({ nonceUsedAt: now })
+        .where(and(eq(presentationRequests.id, row.requestId), isNull(presentationRequests.nonceUsedAt)))
+        .returning({ id: presentationRequests.id });
+      if (!consumed) return null;
+    }
+    const [created] = await tx.insert(verifications).values(row).returning();
+    if (!created) throw new Error("verification insert returned no row");
+    return created;
+  });
 }

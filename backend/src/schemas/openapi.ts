@@ -1,6 +1,7 @@
 // OpenAPI document built from the Zod contract schemas. Served at GET /api/v1/openapi.json;
 // the frontend generates src/api/types.ts from it. Register every new endpoint here.
 import { OpenAPIRegistry, OpenApiGeneratorV31 } from "@asteasolutions/zod-to-openapi";
+import type { z } from "zod";
 import { API_BASE_PATH, APP_VERSION } from "../config";
 import { ErrorResponse } from "./common.schema";
 import { Health } from "./health.schema";
@@ -13,11 +14,25 @@ import {
   IssueCredentialOut,
   IssuedCredentialList,
   IssuerBatchParams,
+  IssuerCredentialParams,
   ListQuery,
+  ReissueIn,
+  ReissueOut,
+  RevokeOut,
   StatusListOut,
   StatusListParams,
 } from "./issuance.schema";
-import { Issuer, IssuerCreate, IssuerKey, IssuerList, IssuerParams } from "./issuers.schema";
+import { AttackRunOut, AttackState, ForgeIn, ForgeOut, OkOut, StealKeyIn, StolenKey, VerifyForgedIn } from "./attack.schema";
+import {
+  CompromiseCreate,
+  CompromiseReport,
+  Issuer,
+  IssuerCreate,
+  IssuerKey,
+  IssuerKeyParams,
+  IssuerList,
+  IssuerParams,
+} from "./issuers.schema";
 import {
   ParseIn,
   ParseOut,
@@ -232,7 +247,7 @@ registry.registerPath({
   method: "post",
   path: "/presentation-requests/parse",
   tags: ["verifiers"],
-  description: "501 NOT_IMPLEMENTED until V1.1-H3",
+  description: "Claude on Bedrock; 422 POLICY_AMBIGUOUS with details.questions, 502 AI_UNAVAILABLE / AI_BAD_OUTPUT",
   request: { body: json(ParseIn, "Plain-English requirement") },
   responses: { 200: json(ParseOut, "Policy built by Claude"), ...errorResponses },
 });
@@ -254,7 +269,7 @@ registry.registerPath({
   method: "post",
   path: "/presentation-requests/{request_id}/presentations",
   tags: ["verifiers"],
-  description: "501 NOT_IMPLEMENTED until V1.1-H2",
+  description: "Runs the full 4-step eval chain. 409 NONCE_USED once a presentation was accepted, 410 when expired",
   request: { params: RequestParams, body: json(Presentation, "Presentation built by zk-core in the wallet") },
   responses: { 200: json(Verification, "Verification result (rejections are 200 too)"), ...errorResponses },
 });
@@ -265,6 +280,47 @@ registry.registerPath({
   request: { params: RequestParams },
   responses: { 200: json(VerificationList, "Verifications of this request, newest first"), ...errorResponses },
 });
+
+registry.registerPath({
+  method: "post",
+  path: "/issuers/{issuer_id}/credentials/{credential_id}/revoke",
+  tags: ["issuance"],
+  security: admin,
+  request: { params: IssuerCredentialParams },
+  responses: { 200: json(RevokeOut, "Status bit set; new list hash pinned on-chain"), ...errorResponses },
+});
+registry.registerPath({
+  method: "post",
+  path: "/issuers/{issuer_id}/keys/{key_id}/compromise",
+  tags: ["issuers"],
+  security: admin,
+  request: { params: IssuerKeyParams, body: json(CompromiseCreate, "Compromise window (default BREACH_WINDOW_SECONDS)") },
+  responses: { 200: json(CompromiseReport, "markCompromised (+ auto-rotate) and the affected batches"), ...errorResponses },
+});
+registry.registerPath({
+  method: "post",
+  path: "/issuers/{issuer_id}/reissue",
+  tags: ["issuance"],
+  security: wallet,
+  request: { params: IssuerParams, body: json(ReissueIn, "The holder's old credential") },
+  responses: { 201: json(ReissueOut, "New offer signed with the active key"), ...errorResponses },
+});
+
+const attack = (path: string, method: "get" | "post", response: z.ZodType, description: string, body?: z.ZodType) =>
+  registry.registerPath({
+    method,
+    path,
+    tags: ["attack"],
+    security: admin,
+    description: "DEMO_MODE only (404 otherwise)",
+    request: body ? { body: json(body, "Attack input") } : undefined,
+    responses: { 200: json(response, description), ...errorResponses },
+  });
+attack("/attack/steal-key", "post", StolenKey, "Copied the active BBS secret key (not the governance wallet)", StealKeyIn);
+attack("/attack/forge", "post", ForgeOut, "Forged credentials injected into the issuer's batch", ForgeIn);
+attack("/attack/verify-forged", "post", AttackRunOut, "Every forgery run through the engine", VerifyForgedIn);
+attack("/attack/state", "get", AttackState, "Counters + timeline");
+attack("/attack/reset", "post", OkOut, "Attack tables cleared");
 
 export function buildOpenApiDocument() {
   return new OpenApiGeneratorV31(registry.definitions).generateDocument({

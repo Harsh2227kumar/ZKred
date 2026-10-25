@@ -49,3 +49,34 @@ export const IssuerParams = z.object({ issuer_id: Uuid });
 export type IssuerCreate = z.infer<typeof IssuerCreate>;
 export type IssuerKey = z.infer<typeof IssuerKey>;
 export type Issuer = z.infer<typeof Issuer>;
+
+export const CompromiseCreate = z
+  .object({
+    window_seconds: z
+      .number()
+      .int()
+      .positive()
+      .max(10 * 365 * 24 * 3600)
+      .optional()
+      .meta({ description: "Default BREACH_WINDOW_SECONDS" }),
+  })
+  .meta({ id: "CompromiseCreate" });
+
+export const BatchVerdict = z
+  .enum(["legacy_valid", "in_window_needs_reissue", "unanchored_invalid"])
+  .meta({ id: "BatchVerdict" });
+
+export const CompromiseReport = z
+  .object({
+    key_id: Hex32,
+    compromised_from: DateTime.meta({ description: "chain time − window" }),
+    new_key: IssuerKey,
+    tx_hashes: z.array(z.string()),
+    affected_batches: z.array(z.object({ batch_id: Hex32, anchored_at: DateTime.nullable(), verdict: BatchVerdict })),
+  })
+  .meta({ id: "CompromiseReport" });
+
+export const IssuerKeyParams = z.object({ issuer_id: Uuid, key_id: Hex32 });
+
+export type CompromiseCreate = z.infer<typeof CompromiseCreate>;
+export type CompromiseReport = z.infer<typeof CompromiseReport>;

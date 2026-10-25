@@ -90,3 +90,28 @@ export type IssuedCredential = z.infer<typeof IssuedCredential>;
 export type Batch = z.infer<typeof Batch>;
 export type BatchLeaves = z.infer<typeof BatchLeaves>;
 export type StatusListOut = z.infer<typeof StatusListOut>;
+
+export const RevokeOut = z
+  .object({ credential_id: z.uuid(), status_list_id: Hex32, status_index: z.number().int(), list_hash: Hex32, tx_hash: z.string() })
+  .meta({ id: "RevokeOut" });
+
+export const SignedCredentialSchema = z
+  .object({
+    type: CredentialType,
+    issuer_did: z.string().min(1),
+    key_id: Hex32,
+    values: z.record(z.string(), z.string()),
+    signature: Base64url.min(1),
+  })
+  .meta({ id: "SignedCredential" });
+
+export const ReissueIn = z
+  .object({ wallet_id: z.uuid(), old_credential: SignedCredentialSchema.meta({ description: "Full credential; proves possession" }) })
+  .meta({ id: "ReissueIn" });
+
+export const ReissueOut = z.object({ offer_id: z.uuid() }).meta({ id: "ReissueOut" });
+
+export const IssuerCredentialParams = z.object({ issuer_id: Uuid, credential_id: Uuid });
+
+export type RevokeOut = z.infer<typeof RevokeOut>;
+export type ReissueIn = z.infer<typeof ReissueIn>;

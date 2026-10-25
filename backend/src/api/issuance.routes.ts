@@ -6,16 +6,20 @@ import {
   issueCredential,
   listBatches,
   listIssuedCredentials,
+  reissue,
+  revokeCredential,
 } from "../core/issuance";
 import {
   BatchParams,
   IssueCredentialIn,
   IssuerBatchParams,
+  IssuerCredentialParams,
   ListQuery,
+  ReissueIn,
   StatusListParams,
 } from "../schemas/issuance.schema";
 import { IssuerParams } from "../schemas/issuers.schema";
-import { requireAdmin } from "./middleware/auth";
+import { requireAdmin, requireWalletOwnerOfBody } from "./middleware/auth";
 
 export const issuanceRouter = Router();
 
@@ -47,4 +51,14 @@ issuanceRouter.get("/batches/:batch_id/leaves", async (req, res) => {
 issuanceRouter.get("/status-lists/:list_id", async (req, res) => {
   const { list_id } = StatusListParams.parse(req.params);
   res.json(await getStatusList(list_id as `0x${string}`));
+});
+
+issuanceRouter.post("/issuers/:issuer_id/credentials/:credential_id/revoke", requireAdmin, async (req, res) => {
+  const { issuer_id, credential_id } = IssuerCredentialParams.parse(req.params);
+  res.json(await revokeCredential(issuer_id, credential_id));
+});
+
+issuanceRouter.post("/issuers/:issuer_id/reissue", requireWalletOwnerOfBody, async (req, res) => {
+  const { issuer_id } = IssuerParams.parse(req.params);
+  res.status(201).json(await reissue(issuer_id, ReissueIn.parse(req.body)));
 });

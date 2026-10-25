@@ -63,6 +63,18 @@ export async function findIssuer(id: string): Promise<IssuerRecord | null> {
   return { ...row, keys };
 }
 
+/** Public issuer row by DID (no keys, no secrets), or null. */
+export async function findIssuerByDid(did: string): Promise<Omit<IssuerRow, "governanceKeyEnc"> | null> {
+  const [row] = await db.select(publicIssuerColumns).from(issuers).where(eq(issuers.did, did));
+  return row ?? null;
+}
+
+/** Public key row by its on-chain key id (no secret), or null. */
+export async function findKey(keyId: string): Promise<IssuerKeyRecord | null> {
+  const [row] = await db.select(publicKeyColumns).from(issuerKeys).where(eq(issuerKeys.keyId, keyId));
+  return row ?? null;
+}
+
 export async function didExists(did: string): Promise<boolean> {
   const [row] = await db.select({ id: issuers.id }).from(issuers).where(eq(issuers.did, did));
   return Boolean(row);
@@ -99,5 +111,21 @@ export async function recordKeyRotation(issuerId: string, oldKeyId: string, newK
       .set({ status: "rotated" })
       .where(and(eq(issuerKeys.keyId, oldKeyId), eq(issuerKeys.status, "active")));
     await tx.insert(issuerKeys).values({ ...newKey, issuerId });
+  });
+}
+
+/**
+ * Marks `keyId` compromised from `compromisedFrom` and, when the compromised key was the active one, stores the
+ * replacement key that the chain just activated. One transaction, so the issuer never has two active keys.
+ */
+export async function recordCompromise(
+  issuerId: string,
+  keyId: string,
+  compromisedFrom: Date,
+  newKey: NewIssuerKeyRow | null,
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    await tx.update(issuerKeys).set({ status: "compromised", compromisedFrom }).where(eq(issuerKeys.keyId, keyId));
+    if (newKey) await tx.insert(issuerKeys).values({ ...newKey, issuerId });
   });
 }

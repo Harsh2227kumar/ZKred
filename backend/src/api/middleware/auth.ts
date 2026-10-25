@@ -36,3 +36,19 @@ export const requireWalletOwner: RequestHandler = async (req, _res, next) => {
   }
   next();
 };
+
+/** 👛 endpoints whose wallet is named in the JSON body (`wallet_id`), e.g. POST /issuers/{id}/reissue. */
+export const requireWalletOwnerOfBody: RequestHandler = async (req, _res, next) => {
+  const token = bearerToken(req);
+  const walletId = token ? await walletIdForToken(token) : null;
+  if (!walletId) {
+    next(new AppError("UNAUTHORIZED", "Missing or invalid wallet token"));
+    return;
+  }
+  const claimed: unknown = req.body?.wallet_id;
+  if (typeof claimed === "string" && claimed !== walletId) {
+    next(new AppError("FORBIDDEN", "This wallet token does not open that wallet"));
+    return;
+  }
+  next();
+};
