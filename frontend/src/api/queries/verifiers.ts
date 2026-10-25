@@ -2,6 +2,7 @@
 // TanStack query & mutation hooks for Verifiers, Presentation Requests, Policy Parsing, and Verification Polling.
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiClient, unwrap } from '@/api/client';
 import { config } from '@/config';
 import type {
   Verifier,
@@ -12,6 +13,8 @@ import type {
   RequestCreateIn,
   PresentationRequest,
   VerificationsListResponse,
+  Presentation,
+  Verification,
 } from '@/api/schemas';
 
 // --- Queries ---
@@ -122,4 +125,19 @@ export function useCreateRequest() {
       queryClient.invalidateQueries({ queryKey: ['presentation-requests', data.id] });
     },
   });
+}
+
+// --- Plain helpers (used by features/wallet/pages/WalletRespondPage, V1.2-H4) ---
+
+export function useRequest(requestId: string | null | undefined) {
+  return useQuery<PresentationRequest>({
+    queryKey: ['request', requestId],
+    queryFn: () => unwrap(apiClient.GET('/presentation-requests/{request_id}', { params: { path: { request_id: requestId! } } })) as Promise<PresentationRequest>,
+    enabled: Boolean(requestId),
+    retry: false,
+  });
+}
+
+export function submitPresentation(requestId: string, body: Presentation): Promise<Verification> {
+  return unwrap(apiClient.POST('/presentation-requests/{request_id}/presentations', { params: { path: { request_id: requestId } }, body })) as Promise<Verification>;
 }

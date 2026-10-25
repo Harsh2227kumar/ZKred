@@ -37,6 +37,7 @@
 | 410 | `REQUEST_EXPIRED` | Presentation request past `expires_at` |
 | 422 | `VALIDATION_ERROR` | Field validation failed (`details` per field) |
 | 422 | `POLICY_AMBIGUOUS` | AI couldn't build a safe policy; `details.questions: string[]` |
+| 429 | `RATE_LIMITED` | Too many parse / request-create / presentation calls from one IP; `Retry-After` header + `details.retry_after_seconds` |
 | 501 | `NOT_IMPLEMENTED` | Endpoint exists, logic pending |
 | 502 | `AI_UNAVAILABLE` | Bedrock call failed / timed out |
 | 502 | `AI_BAD_OUTPUT` | Claude output failed Zod validation after 1 retry |
@@ -101,7 +102,7 @@
 | Method | Path | Request | Response 2xx | Notes |
 |---|---|---|---|---|
 | POST | `/attack/steal-key` | `{ issuer_id: uuid }` | `{ issuer_id, key_id, stolen_at }` | Copies the active BBS secret key into `attack_state`. **The governance wallet is NOT stolen.** |
-| POST | `/attack/forge` | `{ issuer_id, count: 1-1000, claims: object }` | `{ forged_set_id, forged_count, batch_id, anchor_tx_hash }` | Simulates a breached issuance pipeline: signs `count` degrees with the stolen key (random serials, claims from the body), injects their commitments into the issuer's open batch (`issuance_batches.leaves`), then anchors that batch. Stored in `attack_forgeries`; **never** written to `issued_credentials` (the registrar's records stay honest). |
+| POST | `/attack/forge` | `{ issuer_id, count: 1-1000, claims: object }` | `{ forged_set_id, forged_count, batch_id, anchor_tx_hash: string \| null }` | Simulates a breached issuance pipeline: signs `count` degrees with the stolen key (random serials, claims from the body), injects their commitments into the issuer's open batch (`issuance_batches.leaves`), then anchors that batch. Stored in `attack_forgeries`; **never** written to `issued_credentials` (the registrar's records stay honest). |
 | POST | `/attack/verify-forged` | `{ mode: "naive" \| "full" }` | `AttackRunOut` | Runs every forgery through the engine. `full` = the real 4-step chain (the demo uses this); `naive` = signature step only (for contrast). |
 | GET | `/attack/state` | — | `AttackState` | Counters + timeline |
 | POST | `/attack/reset` | — | `{ ok: true }` | Clears `attack_*` tables only (never chain, never issuers) |
@@ -154,6 +155,7 @@ Issuer
   issuer_chain_id: Hex32                         # keccak256(did)
   governance_address: address
   accredited: boolean                            # read from chain
+  accredited_as_of: datetime                     # when `accredited` was read (cached ≤ ISSUER_CACHE_TTL_MS; older if the RPC is down)
   keys: IssuerKey[]
   created_at: datetime
 
@@ -289,7 +291,7 @@ AttackState
   stolen_keys: [{ issuer_id, key_id, stolen_at }], forged_count: int, runs: AttackRunOut[]
 ```
 
-Verification step codes (`steps[].code`): `OK`, `BBS_INVALID`, `ISSUER_UNKNOWN`, `ISSUER_NOT_ACCREDITED`, `KEY_UNKNOWN`, `PUBKEY_HASH_MISMATCH`, `POLICY_FIELD_MISSING`, `POLICY_EQUALS_FAILED`, `AGE_PROOF_INVALID`, `AGE_COMMITMENT_MISMATCH`, `AGE_PROOF_STALE_DATE`, `REVOKED`, `REVOCATION_LIST_TAMPERED`, `BATCH_NOT_ANCHORED`, `MERKLE_PROOF_INVALID`, `KEY_COMPROMISED_ANCHORED_IN_WINDOW`, `CHAIN_UNAVAILABLE`.
+Verification step codes (`steps[].code`): `OK`, `BBS_INVALID`, `ISSUER_UNKNOWN`, `ISSUER_NOT_ACCREDITED`, `ISSUER_NOT_ALLOWED`, `KEY_UNKNOWN`, `PUBKEY_HASH_MISMATCH`, `POLICY_FIELD_MISSING`, `POLICY_EQUALS_FAILED`, `AGE_PROOF_INVALID`, `AGE_COMMITMENT_MISMATCH`, `AGE_PROOF_STALE_DATE`, `REVOKED`, `REVOCATION_LIST_TAMPERED`, `BATCH_NOT_ANCHORED`, `MERKLE_PROOF_INVALID`, `KEY_COMPROMISED_ANCHORED_IN_WINDOW`, `CHAIN_UNAVAILABLE`.
 
 ## 4. Internal interfaces
 
@@ -471,6 +473,8 @@ Code reads these **only** through `backend/src/config.ts` / `frontend/src/config
 | `REQUEST_TTL_SECONDS` | no (`900`) | int | presentation request expiry |
 | `STATUS_LIST_SIZE` | no (`16384`) | int | herd-privacy list size |
 | `BATCH_MAX_SIZE` | no (`256`) | int | auto-close batch size |
+| `CLAIM_MAX_CHARS` | no (`256`) | int | max length of one issued claim value |
+| `LIST_DEFAULT_LIMIT` / `LIST_MAX_LIMIT` | no (`50` / `200`) | int | `?limit=` default and cap on paged lists |
 | `AGE_PROOF_MAX_SKEW_DAYS` | no (`1`) | int | days a proof's `cutoff_days` may exceed the verifier's own cutoff (clock drift) |
 | `ZK_ARTIFACTS_DIR` | yes | path to `circuits/build` | vkey for server verification |
 | `AWS_REGION` | yes | Bedrock region | Bedrock client |
@@ -479,6 +483,11 @@ Code reads these **only** through `backend/src/config.ts` / `frontend/src/config
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | one of these | IAM keys (or EC2 instance role: none needed) | auth option B |
 | `AI_TIMEOUT_MS` | no (`30000`) | int | |
 | `AI_MAX_TOKENS` | no (`4000`) | int | |
+| `AI_CONSENT_TIMEOUT_MS` | no (`8000`) | int | consent text timeout (no retry) before the template is used |
+| `RATE_LIMIT_WINDOW_MS` | no (`60000`) | int | rate-limit window per client IP |
+| `RATE_LIMIT_AI_MAX` | no (`10`) | int | parse + request-create calls per window per IP (each calls Bedrock) |
+| `RATE_LIMIT_VERIFY_MAX` | no (`30`) | int | presentation submissions per window per IP |
+| `ISSUER_CACHE_TTL_MS` | no (`30000`) | int | reuse on-chain issuer reads in `GET /issuers*` (verification never uses the cache) |
 
 ### Frontend (`frontend/.env`)
 
@@ -522,3 +531,13 @@ Code reads these **only** through `backend/src/config.ts` / `frontend/src/config
 | V0-H2 | `CredentialSchema.fields[].source` added (meta / claim / derived) so the issue form renders only claim fields | No (additive) | |
 | V0-review | `Presentation.items[].age_proof.public_signals`: exactly 2 canonical decimal strings; `verifyAgeGte` returns false for any public signal that is not a canonical BN254 field element (closes a mod-r aliasing bypass of the cutoff check). DB: FK + unique `(status_list_id, status_index)` + FK indexes (migration 0001), no column changes | No (tightens validation only) | |
 | V1-H1 | Optional env vars `CHAIN_TX_TIMEOUT_MS`, `CHAIN_POLL_INTERVAL_MS` (defaults in `backend/src/config.ts`). Issuer endpoints live: `accredited` and key epochs come from IssuerRegistry; `active_from` = block time of the `addKey`/`rotateKey` tx. `GET /issuers*` returns `502 CHAIN_UNAVAILABLE` when the RPC is down (no guessed `accredited`) | No (additive) | |
+| V1-H2 | zk-core `merkleRoot`/`merkleProof`/`verifyMerkleProof` and `statusList` implemented (were V1.1 stubs). Merkle leaves are hashed once (`keccak256(commitment)`) before sorted-pair hashing, so `root ≠` a plain sorted-pair tree over raw commitments and internal nodes can't pose as leaves; an odd node is promoted. Status list: bit 0 = MSB of byte 0, `encode` = gzip(mtime 0) + base64url, `hash` = keccak256 of the raw bits. A new status list's all-zero hash is set on-chain before any credential uses it. `GET /batches/{id}/leaves` → `root: null` while open. Optional env `CLAIM_MAX_CHARS`, `LIST_DEFAULT_LIMIT`, `LIST_MAX_LIMIT` | No (additive) | |
+| V1-H3 | zk-core additive `walletCrypto.isValidPublicKey(b64)`; `POST /wallets` rejects an `enc_public_key` that is not a raw P-256 point (422). 👛 auth: unknown/missing token → 401, valid token for another wallet → 403, another wallet's offer id → 404. Claim is idempotent. DB migration 0002: unique `wallets.token_hash` (lookup index), no column changes | No (additive) | |
+| V1-H4 | Verifier `did` = `did:zkred:verifier:<uuid>` (server-generated). `POST /presentation-requests`: 32-byte base64url nonce, `expires_at` = now + `REQUEST_TTL_SECONDS`, `consent_summary` from a deterministic template (Bedrock in V1.1-H3), unknown `verifier_id` → 422. `GET /presentation-requests/{id}` → 410 `REQUEST_EXPIRED` once expired. `GET .../verifications` is live (empty until V1.1-H2); `parse` and `presentations` → 501 | No | |
+| V1.1-H1 | `buildPresentation` implemented. Additive: optional `issuers: Record<did, { kind, accredited }>` input (lets the wallet honour `accredited_only` / `issuer_kinds` when choosing a credential); exports `matchCredentials(requirement, credentials, { todayDays, issuers? })`, `revealFieldsFor(requirement)`, type `IssuerInfo`. A credential is used only if its signature verifies and its batch leaves contain its commitment; otherwise `ZkCoreError("MISSING_CREDENTIAL")` | No (additive) | |
+| V1.1-H2 | `POST .../presentations` live (`core/verifier.ts`, 4 steps per requirement, stops at the first failing step; chain errors → step code `CHAIN_UNAVAILABLE`, result rejected). BBS proofs are checked against the request's stored nonce, never `Presentation.nonce`. Only an **accepted** presentation consumes the nonce (rejections can be retried); `request_id` ≠ URL, unknown or duplicate `requirement_id` → 422. `revealed[req]` = the policy's `reveal` fields (+ `dob_commitment` for age) + `issuer_did`. New step code `ISSUER_NOT_ALLOWED` (issuer not in `issuer_dids` / `issuer_kinds`) | No (additive code) | |
+| V1.1-H3 | `POST /presentation-requests/parse` live (Claude on Bedrock, forced tool call, Zod-validated, 1 retry). `POST /presentation-requests` writes the consent text with Claude and falls back to the deterministic template when Bedrock fails | No | |
+| V1.2-H1 | `POST .../credentials/{id}/revoke` live; second revoke → 409. If a previous attempt mined the tx but crashed, the DB is re-synced from the chain hash | No | |
+| V1.2-H2 | `POST .../keys/{key_id}/compromise` live: cutoff = latest block time − window (whole seconds); an active key is auto-rotated in the same call; re-reporting keeps the earlier on-chain cutoff. `POST /issuers/{id}/reissue` live: wallet token must open `body.wallet_id` (else 403); not in the issuer's records / other wallet / revoked / bad signature → 403 `FORBIDDEN`; already re-issued → 409. `CompromiseCreate.window_seconds` ≤ 10 years | No | |
+| V1.2-H3 | `/attack/*` live (admin token + `DEMO_MODE`). `forge` → `anchor_tx_hash: null` when the stolen key can no longer anchor (forgeries then fail `BATCH_NOT_ANCHORED`). `by_code` counts rejections only. `verify-forged` checks with an accredited-Degree, not-revoked policy built from the layout | No (nullable field) | |
+| V1.2-H4 | Review fixes: `POST .../keys/rotate` first anchors the old key's non-empty open batches (they could never be anchored after rotation). `POST /issuers/{id}/reissue` only for credentials no verifier accepts any more (anchored at/after the key's compromise cutoff, or never anchored and the key is no longer active); otherwise 409. New error `429 RATE_LIMITED` on parse, request create and presentations. `Issuer.accredited_as_of` (additive): `GET /issuers*` caches chain reads for `ISSUER_CACHE_TTL_MS` and serves the last read if the RPC is down (502 only when there is none). Consent text: `AI_CONSENT_TIMEOUT_MS`, no retry. New optional env vars `AI_CONSENT_TIMEOUT_MS`, `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_AI_MAX`, `RATE_LIMIT_VERIFY_MAX`, `ISSUER_CACHE_TTL_MS` | No (additive; reissue tightened) | |

@@ -1,0 +1,1 @@
+ALTER TABLE "wallets" ADD CONSTRAINT "wallets_token_hash_unique" UNIQUE("token_hash");

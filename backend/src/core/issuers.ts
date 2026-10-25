@@ -4,8 +4,10 @@ import { generateIssuerKeyPair, pubKeyHash, type Hex32 } from "@zkred/zk-core";
 import * as repo from "../db/repositories/issuers.repo";
 import { isUniqueViolation } from "../db/errors";
 import * as chain from "../integrations/chain";
+import { config } from "../config";
 import { withLock } from "../keyed-lock";
 import { logger } from "../logger";
+import { ttlCache } from "../ttl-cache";
 import type { Issuer, IssuerCreate, IssuerKey } from "../schemas/issuers.schema";
 import { AppError } from "./errors";
 import { openSecret, sealSecret } from "./secrets-at-rest";
@@ -23,20 +25,20 @@ export const openGovernanceKey = (did: string, sealed: string): string =>
 export const sealBbsSecretKey = (keyId: string, secretKey: Uint8Array): string => sealSecret("bbs_secret_key", keyId, secretKey);
 export const openBbsSecretKey = (keyId: string, sealed: string): Uint8Array => openSecret("bbs_secret_key", keyId, sealed);
 
-interface SigningKey {
+export interface SigningKey {
   keyId: Hex32;
   publicKey: Uint8Array;
   secretKey: Uint8Array;
   pubKeyHash: Hex32;
 }
 
-async function newSigningKey(): Promise<SigningKey> {
+export async function newSigningKey(): Promise<SigningKey> {
   const { keyId, publicKey, secretKey } = await generateIssuerKeyPair();
   return { keyId, publicKey, secretKey, pubKeyHash: pubKeyHash(publicKey) };
 }
 
 /** The DB row for a key whose on-chain registration was mined in `tx` (active_from = that block's time). */
-function keyRow(key: SigningKey, tx: chain.TxResult): repo.NewIssuerKeyRow {
+export function keyRow(key: SigningKey, tx: chain.TxResult): repo.NewIssuerKeyRow {
   return {
     keyId: key.keyId,
     publicKey: Buffer.from(key.publicKey).toString("base64url"),
@@ -47,7 +49,7 @@ function keyRow(key: SigningKey, tx: chain.TxResult): repo.NewIssuerKeyRow {
   };
 }
 
-function toIssuerKey(k: repo.IssuerKeyRecord): IssuerKey {
+export function toIssuerKey(k: repo.IssuerKeyRecord): IssuerKey {
   return {
     key_id: k.keyId as Hex32,
     public_key: k.publicKey,
@@ -58,9 +60,12 @@ function toIssuerKey(k: repo.IssuerKeyRecord): IssuerKey {
   };
 }
 
+/** On-chain issuer records for the issuer views (never for verification, which always reads the chain). */
+const chainIssuers = ttlCache(config.ISSUER_CACHE_TTL_MS, (issuerChainId: Hex32) => chain.getIssuer(issuerChainId));
+
 async function toIssuer(r: repo.IssuerRecord): Promise<Issuer> {
   // An issuer missing on-chain (e.g. the registry was redeployed) is reported as not accredited.
-  const onchain = await chain.getIssuer(r.issuerChainId as Hex32);
+  const onchain = await chainIssuers.get(r.issuerChainId as Hex32);
   return {
     id: r.id,
     did: r.did,
@@ -68,7 +73,8 @@ async function toIssuer(r: repo.IssuerRecord): Promise<Issuer> {
     kind: r.kind,
     issuer_chain_id: r.issuerChainId as Hex32,
     governance_address: r.governanceAddress,
-    accredited: onchain?.accredited ?? false,
+    accredited: onchain.value?.accredited ?? false,
+    accredited_as_of: onchain.at.toISOString(),
     keys: r.keys.map(toIssuerKey),
     created_at: r.createdAt.toISOString(),
   };
@@ -123,34 +129,5 @@ export async function createIssuer(input: IssuerCreate): Promise<Issuer> {
       throw err;
     }
     return getIssuer(id);
-  });
-}
-
-/** Retires the active key on-chain and in the DB; the new key signs every credential from now on. */
-export async function rotateIssuerKey(issuerId: string): Promise<IssuerKey> {
-  return withIssuerLock(issuerId, async () => {
-    const issuer = await repo.findIssuerWithSecrets(issuerId);
-    if (!issuer) throw new AppError("NOT_FOUND", "Issuer not found");
-    const current = await repo.findActiveKeyWithSecret(issuerId);
-    if (!current) throw new AppError("CONFLICT", "Issuer has no active key to rotate");
-
-    const key = await newSigningKey();
-    const tx = await chain.rotateKey(
-      openGovernanceKey(issuer.did, issuer.governanceKeyEnc),
-      issuer.issuerChainId as Hex32,
-      current.keyId as Hex32,
-      key.keyId,
-      key.pubKeyHash,
-    );
-    const row = keyRow(key, tx);
-    await repo.recordKeyRotation(issuerId, current.keyId, row);
-    return {
-      key_id: key.keyId,
-      public_key: row.publicKey,
-      status: "active",
-      active_from: tx.blockTime.toISOString(),
-      compromised_from: null,
-      tx_hash: tx.txHash,
-    };
   });
 }

@@ -21,6 +21,8 @@ export interface JsonWebKey {
 const OFFER_HKDF_INFO = utf8ToBytes("zkred:offer:v1");
 const ECDH_PARAMS = { name: "ECDH", namedCurve: "P-256" } as const;
 const IV_BYTES = 12;
+/** PBKDF2-HMAC-SHA256 work factor for wallet backups (OWASP Password Storage Cheat Sheet recommendation). */
+export const BACKUP_KDF_ITERATIONS = 600_000;
 const SALT_BYTES = 16;
 
 function subtle(): SubtleCrypto {
@@ -147,8 +149,19 @@ async function decryptBackup(
   return JSON.parse(bytesToUtf8(new Uint8Array(pt)));
 }
 
+/** True if `publicKeyB64` is a raw (uncompressed) P-256 point that offers can be encrypted to. */
+async function isValidPublicKey(publicKeyB64: string): Promise<boolean> {
+  try {
+    await subtle().importKey("raw", buf(base64urlToBytes(publicKeyB64)), ECDH_PARAMS, false, []);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export const walletCrypto = {
   generateWalletKeyPair,
+  isValidPublicKey,
   encryptOffer,
   decryptOffer,
   encryptBackup,
