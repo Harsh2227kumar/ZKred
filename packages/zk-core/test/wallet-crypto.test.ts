@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ZkCoreError, buildPresentation, merkleRoot, statusList, walletCrypto, type SignedCredential } from "../src";
+import { ZkCoreError, buildPresentation, walletCrypto, type SignedCredential } from "../src";
 import { randomHex32, randomText } from "./factories";
 
 const credential = (): SignedCredential => ({
@@ -56,8 +56,6 @@ describe("walletCrypto backups", () => {
 
 describe("later-task stubs", () => {
   it("throw NOT_IMPLEMENTED instead of silently succeeding", async () => {
-    expect(() => merkleRoot([])).toThrow(/not implemented yet \(V1\.1\)/);
-    expect(() => statusList.create(8)).toThrow(ZkCoreError);
     await expect(buildPresentation({} as never)).rejects.toMatchObject({ code: "NOT_IMPLEMENTED" });
   });
 });

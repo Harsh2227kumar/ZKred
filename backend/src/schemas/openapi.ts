@@ -4,6 +4,19 @@ import { OpenAPIRegistry, OpenApiGeneratorV31 } from "@asteasolutions/zod-to-ope
 import { API_BASE_PATH, APP_VERSION } from "../config";
 import { ErrorResponse } from "./common.schema";
 import { Health } from "./health.schema";
+import {
+  Batch,
+  BatchLeaves,
+  BatchList,
+  BatchParams,
+  IssueCredentialIn,
+  IssueCredentialOut,
+  IssuedCredentialList,
+  IssuerBatchParams,
+  ListQuery,
+  StatusListOut,
+  StatusListParams,
+} from "./issuance.schema";
 import { Issuer, IssuerCreate, IssuerKey, IssuerList, IssuerParams } from "./issuers.schema";
 import { ChainInfo, CredentialSchemaList, Enums } from "./meta.schema";
 
@@ -75,6 +88,52 @@ registry.registerPath({
   security: admin,
   request: { params: IssuerParams },
   responses: { 200: json(IssuerKey, "The new active key"), ...errorResponses },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/issuers/{issuer_id}/credentials",
+  tags: ["issuance"],
+  security: admin,
+  request: { params: IssuerParams, body: json(IssueCredentialIn, "Credential to issue") },
+  responses: { 201: json(IssueCredentialOut, "Signed, offered to the wallet, added to the open batch"), ...errorResponses },
+});
+registry.registerPath({
+  method: "get",
+  path: "/issuers/{issuer_id}/credentials",
+  tags: ["issuance"],
+  security: admin,
+  request: { params: IssuerParams, query: ListQuery },
+  responses: { 200: json(IssuedCredentialList, "Issued credentials, newest first (no claims)"), ...errorResponses },
+});
+registry.registerPath({
+  method: "get",
+  path: "/issuers/{issuer_id}/batches",
+  tags: ["issuance"],
+  request: { params: IssuerParams },
+  responses: { 200: json(BatchList, "Issuance batches, newest first"), ...errorResponses },
+});
+registry.registerPath({
+  method: "post",
+  path: "/issuers/{issuer_id}/batches/{batch_id}/anchor",
+  tags: ["issuance"],
+  security: admin,
+  request: { params: IssuerBatchParams },
+  responses: { 200: json(Batch, "Batch anchored on-chain"), ...errorResponses },
+});
+registry.registerPath({
+  method: "get",
+  path: "/batches/{batch_id}/leaves",
+  tags: ["issuance"],
+  request: { params: BatchParams },
+  responses: { 200: json(BatchLeaves, "Batch commitments (wallet builds its Merkle proof)"), ...errorResponses },
+});
+registry.registerPath({
+  method: "get",
+  path: "/status-lists/{list_id}",
+  tags: ["issuance"],
+  request: { params: StatusListParams },
+  responses: { 200: json(StatusListOut, "Revocation bitstring + on-chain hash"), ...errorResponses },
 });
 
 export function buildOpenApiDocument() {
