@@ -1,5 +1,8 @@
 // Public API of @zkred/zk-core (md/CONTRACTS.md §4.1). Everything not exported here is internal.
-// V0-H2 ships only the layouts; BBS, policy, age proof, merkle, status list and wallet crypto land in V0-H5.
+// Merkle, status list and buildPresentation are typed stubs that throw NOT_IMPLEMENTED until V1.1.
+
+export type { Hex32, SignedCredential, ZkArtifacts } from "./types";
+export { ZkCoreError } from "./errors";
 
 export {
   CREDENTIAL_TYPES,
@@ -11,3 +14,37 @@ export {
   type FieldKind,
   type FieldSource,
 } from "./layouts";
+
+export {
+  PresentationPolicySchema,
+  PresentationSchema,
+  ISSUER_KINDS,
+  PREDICATE_TYPES,
+  type PresentationPolicy,
+  type PresentationRequirement,
+  type Presentation,
+  type PresentationItem,
+  type IssuerKind,
+} from "./policy";
+
+export {
+  generateIssuerKeyPair,
+  pubKeyHash,
+  encodeMessages,
+  signCredential,
+  verifyCredential,
+  deriveDisclosure,
+  verifyDisclosure,
+} from "./bbs";
+
+export { walletCrypto } from "./wallet-crypto";
+
+export { dobCommitment, proveAgeGte, verifyAgeGte, dateToDays, ageCutoffDays, randomDobSalt } from "./age";
+
+export {
+  merkleRoot,
+  merkleProof,
+  verifyMerkleProof,
+  statusList,
+  buildPresentation,
+} from "./pending";
