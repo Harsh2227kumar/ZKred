@@ -146,7 +146,7 @@ Status values: `STARTED`, `DONE`, `BLOCKED`, `HANDOFF`. Never edit the other mem
 - **Database:** Postgres 16 (docker compose locally and on EC2)
 - **Crypto:** `@digitalbazaar/bbs-signatures` (wrapped in `zk-core/src/bbs.ts`), Circom 2 + `snarkjs` (Groth16), `circomlibjs` (Poseidon), WebCrypto (ECDH P-256, AES-GCM, PBKDF2)
 - **Chain:** Solidity ^0.8.24 + Hardhat; Base Sepolia (chain id 84532); local Hardhat (31337) as the fallback
-- **AI provider:** Claude Sonnet on AWS Bedrock via `@anthropic-ai/bedrock-sdk` (`AnthropicBedrockMantle`); model id + region from env; called from the **backend only**, never from the browser
+- **AI provider:** Claude Sonnet on AWS Bedrock via `@anthropic-ai/bedrock-sdk` (`AnthropicBedrock`, Bedrock Runtime; model id = a cross-region inference profile such as `global.anthropic.claude-sonnet-4-6`); model id + region from env; called from the **backend only**, never from the browser
 - **Deploy:** one AWS EC2 + `docker compose` (Caddy: HTTPS + static frontend + `/api` reverse proxy)
 - **Naming:** files `kebab-case` (`wallet-store.ts`, `issuers.routes.ts`, `verifier.ts`); React component files `PascalCase.tsx` (`WalletInbox.tsx`); TS identifiers `camelCase`, types/components `PascalCase`; DB tables plural `snake_case`; API paths `/kebab-case`; JSON keys `snake_case`; Solidity `PascalCase.sol` contracts / `camelCase` functions; Circom `snake_case.circom`
 - **Tests:** `vitest` (backend, zk-core), Hardhat + chai (contracts); tests live in a separate `test/` folder that mirrors `src/` (`backend/test/core/verifier.test.ts`); never `*.test.ts` inside `src/`
