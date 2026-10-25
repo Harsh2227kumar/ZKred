@@ -8,6 +8,7 @@ import { Loading } from '@/components/common/Loading';
 import { ErrorState } from '@/components/common/ErrorState';
 import { EmptyState } from '@/components/common/EmptyState';
 import { Hex } from '@/components/common/Hex';
+import { TxLink } from '@/components/common/TxLink';
 import type { Issuer } from '@/api/schemas';
 
 export const IssuerDetailPage: React.FC = () => {
@@ -88,7 +89,7 @@ export const IssuerDetailPage: React.FC = () => {
                 <tr>
                   <th className="p-3.5">Key ID</th>
                   <th className="p-3.5">Status</th>
-                  <th className="p-3.5">Created</th>
+                  <th className="p-3.5">Active from</th>
                   <th className="p-3.5">On-Chain Tx</th>
                 </tr>
               </thead>
@@ -112,10 +113,10 @@ export const IssuerDetailPage: React.FC = () => {
                       </span>
                     </td>
                     <td className="p-3.5 text-xs text-muted-foreground">
-                      {new Date(k.created_at).toLocaleDateString()}
+                      {new Date(k.active_from).toLocaleDateString()}
                     </td>
                     <td className="p-3.5 text-xs font-mono">
-                      {k.tx_hash ? <Hex value={k.tx_hash} /> : <span className="text-muted-foreground">—</span>}
+                      {k.tx_hash ? <TxLink hash={k.tx_hash} /> : <span className="text-muted-foreground">—</span>}
                     </td>
                   </tr>
                 ))}

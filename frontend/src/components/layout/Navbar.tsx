@@ -36,7 +36,7 @@ export const Navbar: React.FC = () => {
             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-primary to-violet-500 flex items-center justify-center text-primary-foreground shadow-sm shadow-primary/25">
               <ShieldCheck className="w-5 h-5" />
             </div>
-            <div className="flex flex-col">
+            <div className="hidden sm:flex flex-col">
               <div className="flex items-center gap-1.5">
                 <span className="font-extrabold bg-gradient-to-r from-foreground via-foreground/90 to-foreground/70 bg-clip-text text-transparent">ZKred</span>
                 <span className="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-primary/10 text-primary font-semibold">Zero-Knowledge</span>
@@ -46,15 +46,18 @@ export const Navbar: React.FC = () => {
           </NavLink>
 
           {/* Navigation Links */}
-          <nav className="hidden md:flex items-center gap-1 ml-4">
+          {/* Icon-only below lg so the nav also fits phones and narrow laptop windows */}
+          <nav className="flex items-center gap-1 ml-1 sm:ml-4">
             {navItems.map((item) => {
               const Icon = item.icon;
               return (
                 <NavLink
                   key={item.to}
                   to={item.to}
+                  title={item.label}
+                  aria-label={item.label}
                   className={({ isActive }) =>
-                    `flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-all ${
+                    `flex items-center gap-2 px-2.5 lg:px-3.5 py-2 rounded-lg text-sm font-medium transition-all ${
                       isActive
                         ? 'bg-primary/10 text-primary font-semibold shadow-xs'
                         : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
@@ -62,9 +65,9 @@ export const Navbar: React.FC = () => {
                   }
                 >
                   <Icon className="w-4 h-4 opacity-80" />
-                  <span>{item.label}</span>
+                  <span className="hidden lg:inline">{item.label}</span>
                   {item.badge && (
-                    <span className="text-[10px] font-semibold uppercase px-1.5 py-0.2 rounded bg-rose-500/10 text-rose-500 border border-rose-500/20">
+                    <span className="hidden lg:inline text-[10px] font-semibold uppercase px-1.5 py-0.2 rounded bg-rose-500/10 text-rose-500 border border-rose-500/20">
                       {item.badge}
                     </span>
                   )}

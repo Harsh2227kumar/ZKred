@@ -39,9 +39,9 @@ export const AttackConsolePage: React.FC = () => {
           </div>
 
           <div className="py-4 text-center">
-            <span className="text-5xl font-black text-emerald-500 font-mono tracking-tight">0</span>
+            <span className="text-5xl font-black text-emerald-500 font-mono tracking-tight">—</span>
             <span className="text-sm font-semibold text-muted-foreground block mt-1">
-              Forged Credentials Accepted (200 Isolated)
+              Forged Credentials Accepted (counted when the simulation runs)
             </span>
           </div>
 
@@ -63,9 +63,9 @@ export const AttackConsolePage: React.FC = () => {
           </div>
 
           <div className="py-4 text-center">
-            <span className="text-5xl font-black text-rose-500 font-mono tracking-tight">200</span>
+            <span className="text-5xl font-black text-rose-500 font-mono tracking-tight">—</span>
             <span className="text-sm font-semibold text-muted-foreground block mt-1">
-              Forged Credentials Accepted (Breached)
+              Forged Credentials Accepted (counted when the simulation runs)
             </span>
           </div>
 

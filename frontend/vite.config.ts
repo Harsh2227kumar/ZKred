@@ -14,4 +14,11 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  // Local dev only: lets VITE_API_BASE_URL=/api/v1 hit the backend started with `pnpm --filter backend dev`,
+  // the same relative path Caddy serves in docker compose / EC2.
+  server: {
+    proxy: {
+      '/api': process.env.VITE_DEV_API_PROXY ?? 'http://localhost:8080',
+    },
+  },
 })

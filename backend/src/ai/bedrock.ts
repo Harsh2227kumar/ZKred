@@ -4,16 +4,20 @@
 import { AnthropicBedrock } from "@anthropic-ai/bedrock-sdk";
 import { config } from "../config";
 
-export const bedrock = new AnthropicBedrock({
-  awsRegion: config.AWS_REGION,
-  // Explicit credentials when configured; otherwise the default AWS chain (e.g. the EC2 instance role).
-  ...(config.AWS_BEARER_TOKEN_BEDROCK ? { apiKey: config.AWS_BEARER_TOKEN_BEDROCK } : { apiKey: null }),
-  ...(config.AWS_ACCESS_KEY_ID && config.AWS_SECRET_ACCESS_KEY
-    ? { awsAccessKey: config.AWS_ACCESS_KEY_ID, awsSecretKey: config.AWS_SECRET_ACCESS_KEY }
-    : {}),
-  timeout: config.AI_TIMEOUT_MS,
-  maxRetries: 1,
-});
+const common = { awsRegion: config.AWS_REGION, timeout: config.AI_TIMEOUT_MS, maxRetries: 1 };
+
+// Exactly one credential source: Bedrock API key, else IAM key pair, else the default AWS chain (e.g. the EC2
+// instance role). One constructor call per source, because the SDK's option types forbid mixing them.
+export const bedrock = config.AWS_BEARER_TOKEN_BEDROCK
+  ? new AnthropicBedrock({ ...common, apiKey: config.AWS_BEARER_TOKEN_BEDROCK })
+  : config.AWS_ACCESS_KEY_ID && config.AWS_SECRET_ACCESS_KEY
+    ? new AnthropicBedrock({
+        ...common,
+        apiKey: null,
+        awsAccessKey: config.AWS_ACCESS_KEY_ID,
+        awsSecretKey: config.AWS_SECRET_ACCESS_KEY,
+      })
+    : new AnthropicBedrock({ ...common, apiKey: null });
 
 /** Smallest real request that proves the model is reachable with our credentials. */
 export async function pingModel(): Promise<void> {
