@@ -38,7 +38,7 @@ export function toUserMessage(error: unknown, fallbackMessage?: string): string 
     case 'FORBIDDEN':
       return 'You do not have permission to access this resource.';
     case 'NOT_FOUND':
-      return 'The requested resource was not found.';
+      return message || 'The requested resource was not found.';
     case 'CONFLICT':
       return message || 'A resource with this identifier already exists.';
     case 'NONCE_USED':

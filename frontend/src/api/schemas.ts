@@ -119,3 +119,87 @@ export interface Backup {
   version: number;
   updated_at: string;
 }
+
+// Verifiers & Requests (CONTRACTS §3.4 & §3.6)
+export interface Verifier {
+  id: string;
+  name: string;
+  did: string;
+  created_at: string;
+}
+
+export interface VerifierCreateIn {
+  name: string;
+}
+
+export interface VerifiersListResponse {
+  items: Verifier[];
+}
+
+export interface PresentationRequirement {
+  id: string;
+  credential_type: string;
+  accredited_only: boolean;
+  issuer_kinds: string[] | null;
+  issuer_dids: string[] | null;
+  reveal: string[];
+  equals: { field: string; value: string }[];
+  predicates: { type: string; years: number }[];
+  require_not_revoked: boolean;
+}
+
+export interface PresentationPolicy {
+  purpose: string;
+  requirements: PresentationRequirement[];
+  never_collect: string[];
+}
+
+export interface ParseIn {
+  text: string;
+}
+
+export interface ParseOut {
+  policy: PresentationPolicy;
+  consent_summary: string;
+  minimisation_notes: string[];
+}
+
+export interface RequestCreateIn {
+  verifier_id: string;
+  policy: PresentationPolicy;
+  nl_text: string | null;
+}
+
+export interface PresentationRequest {
+  id: string;
+  verifier_id: string;
+  verifier_name: string;
+  policy: PresentationPolicy;
+  consent_summary: string;
+  nonce: string;
+  expires_at: string;
+  created_at: string;
+  wallet_url: string;
+}
+
+export interface VerificationStepResult {
+  requirement_id: string;
+  step: string;
+  ok: boolean;
+  code: string;
+  message: string;
+}
+
+export interface Verification {
+  id: string;
+  request_id: string;
+  mode: 'full' | 'naive';
+  result: 'accepted' | 'rejected';
+  steps: VerificationStepResult[];
+  revealed: Record<string, Record<string, string>>;
+  created_at: string;
+}
+
+export interface VerificationsListResponse {
+  items: Verification[];
+}
