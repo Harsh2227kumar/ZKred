@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   Info,
   Check,
+  Loader2,
 } from 'lucide-react';
 import type { PresentationRequest } from '@/api/schemas';
 import type { SignedCredential } from '@/lib/wallet-crypto';
@@ -22,13 +23,16 @@ import { toast } from 'sonner';
 interface ConsentScreenProps {
   request: PresentationRequest;
   localCredentials: SignedCredential[];
+  onStartProving?: () => void;
+  isProving?: boolean;
 }
 
 export const ConsentScreen: React.FC<ConsentScreenProps> = ({
   request,
   localCredentials,
+  onStartProving,
+  isProving = false,
 }) => {
-  const [hasAuthorized, setHasAuthorized] = useState(false);
   const [showConsentModal, setShowConsentModal] = useState(false);
 
   const requirements = request.policy?.requirements || [];
@@ -62,8 +66,9 @@ export const ConsentScreen: React.FC<ConsentScreenProps> = ({
 
   const handleConfirmConsent = () => {
     setShowConsentModal(false);
-    setHasAuthorized(true);
-    toast.success('Disclosure consent authorized! In-browser ZK proof engine staged for V1.1.');
+    if (onStartProving) {
+      onStartProving();
+    }
   };
 
   return (
@@ -312,37 +317,32 @@ export const ConsentScreen: React.FC<ConsentScreenProps> = ({
 
       {/* Action / Share Proof Button */}
       <div className="space-y-3">
-        {hasAuthorized ? (
-          <div className="p-4 rounded-2xl border border-[#10b981]/30 bg-[#10b981]/10 flex items-center gap-3 text-xs text-[#10b981]">
-            <CheckCircle2 className="w-5 h-5 shrink-0" />
-            <div>
-              <span className="font-semibold block">Consent Authorized</span>
-              <span>
-                Disclosure consent authorized for {request.verifier_name}. Live browser proof submission arrives with V1.1.
-              </span>
-            </div>
-          </div>
-        ) : (
-          <button
-            type="button"
-            disabled={!allSatisfied}
-            onClick={handleAuthorizeClick}
-            className={`w-full py-3.5 px-4 rounded-2xl font-semibold text-sm transition-all shadow-lg ${
-              allSatisfied
-                ? 'bg-linear-to-r from-[#06838d] to-[#046168] hover:opacity-95 text-white shadow-[#06838d]/20 cursor-pointer'
-                : 'bg-[#06838d]/30 text-[#8ea5a8] border border-[#231a3d] cursor-not-allowed opacity-60'
-            }`}
-          >
-            {allSatisfied ? (
-              <span className="flex items-center justify-center gap-2">
-                <ShieldCheck className="w-4.5 h-4.5" />
-                <span>Authorize & Sign Zero-Knowledge Presentation</span>
-              </span>
-            ) : (
-              <span>Missing Required Credentials in Wallet</span>
-            )}
-          </button>
-        )}
+        <button
+          type="button"
+          disabled={!allSatisfied || isProving}
+          onClick={handleAuthorizeClick}
+          className={`w-full py-3.5 px-4 rounded-2xl font-semibold text-sm transition-all shadow-lg ${
+            isProving
+              ? 'bg-[#06838d]/50 text-white cursor-wait'
+              : allSatisfied
+              ? 'bg-linear-to-r from-[#06838d] to-[#046168] hover:opacity-95 text-white shadow-[#06838d]/20 cursor-pointer'
+              : 'bg-[#06838d]/30 text-[#8ea5a8] border border-[#231a3d] cursor-not-allowed opacity-60'
+          }`}
+        >
+          {isProving ? (
+            <span className="flex items-center justify-center gap-2">
+              <Loader2 className="w-4.5 h-4.5 animate-spin" />
+              <span>Generating Zero-Knowledge Proof...</span>
+            </span>
+          ) : allSatisfied ? (
+            <span className="flex items-center justify-center gap-2">
+              <ShieldCheck className="w-4.5 h-4.5" />
+              <span>Authorize & Sign Zero-Knowledge Presentation</span>
+            </span>
+          ) : (
+            <span>Missing Required Credentials in Wallet</span>
+          )}
+        </button>
 
         {!allSatisfied && (
           <p className="text-center text-xs text-[#fb7185]">
@@ -388,7 +388,7 @@ export const ConsentScreen: React.FC<ConsentScreenProps> = ({
             <div className="p-3 rounded-xl bg-[#06838d]/10 border border-[#06838d]/25 text-xs text-[#79bab6] flex items-start gap-2">
               <Info className="w-4 h-4 shrink-0 mt-0.5" />
               <span>
-                In V1, consent specifications and credential matching are verified. The in-browser prover engine arrives in V1.1.
+                Zero-knowledge proof calculation executes entirely in your browser. Sensitive PII never leaves this device.
               </span>
             </div>
 

@@ -141,3 +141,15 @@ export function useRequest(requestId: string | null | undefined) {
 export function submitPresentation(requestId: string, body: Presentation): Promise<Verification> {
   return unwrap(apiClient.POST('/presentation-requests/{request_id}/presentations', { params: { path: { request_id: requestId } }, body })) as Promise<Verification>;
 }
+
+export function useSubmitPresentation(requestId: string) {
+  const queryClient = useQueryClient();
+  return useMutation<Verification, unknown, Presentation>({
+    mutationFn: (presentation: Presentation) => submitPresentation(requestId, presentation),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['presentation-requests', requestId, 'verifications'] });
+      queryClient.invalidateQueries({ queryKey: ['presentation-requests', requestId] });
+    },
+  });
+}
+

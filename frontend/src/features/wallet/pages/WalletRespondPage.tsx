@@ -2,10 +2,16 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, NavLink } from 'react-router-dom';
 import { ArrowLeft, Shield, AlertCircle, Loader2 } from 'lucide-react';
-import { usePresentationRequest } from '@/api/queries/verifiers';
+import { toast } from 'sonner';
+import { usePresentationRequest, useSubmitPresentation } from '@/api/queries/verifiers';
+import { useIssuers, fetchBatchLeaves } from '@/api/queries/issuers';
 import { getStoredCredentials } from '@/lib/wallet-store';
+import { createPresentation, type IssuerInfo } from '@/lib/zk';
 import type { SignedCredential } from '@/lib/wallet-crypto';
+import type { Verification } from '@/api/schemas';
 import { ConsentScreen } from '../components/ConsentScreen';
+import { ProvingProgressModal, type ProvingStage } from '../components/ProvingProgressModal';
+import { PresentationResultCard } from '../components/PresentationResultCard';
 import { EmptyState } from '@/components/common/EmptyState';
 
 export const WalletRespondPage: React.FC = () => {
@@ -15,11 +21,20 @@ export const WalletRespondPage: React.FC = () => {
   const [localCredentials, setLocalCredentials] = useState<SignedCredential[]>([]);
   const [isLoadingStorage, setIsLoadingStorage] = useState(true);
 
+  // Prover & Verification Lifecycle State
+  const [provingStage, setProvingStage] = useState<ProvingStage>('IDLE');
+  const [provingError, setProvingError] = useState<string | null>(null);
+  const [showProvingModal, setShowProvingModal] = useState(false);
+  const [verification, setVerification] = useState<Verification | null>(null);
+
   const {
     data: request,
     isLoading: isLoadingRequest,
     error: requestError,
   } = usePresentationRequest(requestId || undefined);
+
+  const { data: issuersData } = useIssuers();
+  const submitMutation = useSubmitPresentation(requestId || '');
 
   useEffect(() => {
     let mounted = true;
@@ -39,6 +54,82 @@ export const WalletRespondPage: React.FC = () => {
       mounted = false;
     };
   }, []);
+
+  const hasAgePredicate =
+    request?.policy?.requirements.some((r) =>
+      r.predicates?.some((p) => p.type === 'age_gte')
+    ) ?? false;
+
+  const handleExecuteProver = async () => {
+    if (!request || !requestId) return;
+
+    setShowProvingModal(true);
+    setProvingError(null);
+    setProvingStage('RESOLVING_DEPENDENCIES');
+
+    try {
+      // 1. Gather all issuer keys and accreditation status
+      const issuers = issuersData?.items || [];
+      const issuerKeys: { key_id: string; public_key: string }[] = [];
+      const issuersMap: Record<string, IssuerInfo> = {};
+
+      for (const iss of issuers) {
+        issuersMap[iss.did] = {
+          kind: iss.kind,
+          accredited: iss.accredited,
+        };
+        for (const k of iss.keys || []) {
+          if (k.public_key) {
+            issuerKeys.push({ key_id: k.key_id, public_key: k.public_key });
+          }
+        }
+      }
+
+      // 2. Fetch on-chain batch leaves for each candidate credential
+      const batchLeaves: Record<string, string[]> = {};
+      for (const cred of localCredentials) {
+        const batchId = cred.values?.batch_id;
+        if (batchId && !batchLeaves[batchId]) {
+          const leaves = await fetchBatchLeaves(batchId);
+          batchLeaves[batchId] = leaves;
+        }
+      }
+
+      // 3. Update stage to BBS derivation / ZK SNARK proving
+      setProvingStage(hasAgePredicate ? 'PROVING_AGE' : 'DERIVING_BBS');
+
+      // 4. Execute in-browser BBS+ selective disclosure and Groth16 age zk-SNARK
+      const presentation = await createPresentation({
+        request: {
+          id: request.id,
+          nonce: request.nonce,
+          policy: request.policy,
+        },
+        credentials: localCredentials,
+        issuerKeys,
+        batchLeaves,
+        issuers: issuersMap,
+      });
+
+      // 5. Submit cryptographic presentation to verifier gateway
+      setProvingStage('SUBMITTING');
+      const result = await submitMutation.mutateAsync(presentation);
+
+      setVerification(result);
+      setProvingStage('COMPLETED');
+      toast.success(
+        result.result === 'accepted'
+          ? 'Zero-Knowledge Presentation verified and accepted!'
+          : 'Presentation rejected by verifier evaluation.'
+      );
+    } catch (err: any) {
+      console.error('Presentation proving failed:', err);
+      setProvingStage('FAILED');
+      const msg = err.message || 'Zero-Knowledge presentation generation failed.';
+      setProvingError(msg);
+      toast.error(msg);
+    }
+  };
 
   if (!requestId) {
     return (
@@ -90,6 +181,9 @@ export const WalletRespondPage: React.FC = () => {
     );
   }
 
+  const isProvingActive =
+    provingStage !== 'IDLE' && provingStage !== 'COMPLETED' && provingStage !== 'FAILED';
+
   return (
     <div className="max-w-3xl mx-auto space-y-6 pb-12">
       {/* Top Breadcrumb */}
@@ -108,17 +202,47 @@ export const WalletRespondPage: React.FC = () => {
           </div>
           <div>
             <h1 className="text-xl font-semibold tracking-tight text-[#f0f7f7]">
-              Credential Consent & Disclosure
+              {verification ? 'Verification Evaluation Result' : 'Credential Consent & Disclosure'}
             </h1>
             <p className="text-xs text-[#8ea5a8]">
-              Zero-knowledge authorization gateway. You control exactly what leaves your device.
+              {verification
+                ? 'Deterministic 4-stage evaluation completed. Zero-knowledge guarantees preserved.'
+                : 'Zero-knowledge authorization gateway. You control exactly what leaves your device.'}
             </p>
           </div>
         </div>
       </div>
 
-      {/* 3-Tier Consent & Disclosure Visualizer */}
-      <ConsentScreen request={request} localCredentials={localCredentials} />
+      {/* Render Result Card or Consent Screen */}
+      {verification ? (
+        <PresentationResultCard
+          request={request}
+          verification={verification}
+          onRetry={() => {
+            setVerification(null);
+            setProvingStage('IDLE');
+          }}
+        />
+      ) : (
+        <ConsentScreen
+          request={request}
+          localCredentials={localCredentials}
+          onStartProving={handleExecuteProver}
+          isProving={isProvingActive}
+        />
+      )}
+
+      {/* Proving Progress Modal */}
+      {showProvingModal && (
+        <ProvingProgressModal
+          stage={provingStage}
+          hasAgePredicate={hasAgePredicate}
+          errorMessage={provingError}
+          onClose={() => {
+            setShowProvingModal(false);
+          }}
+        />
+      )}
     </div>
   );
 };
