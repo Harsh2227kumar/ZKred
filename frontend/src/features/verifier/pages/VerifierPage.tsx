@@ -44,9 +44,10 @@ export const VerifierPage: React.FC = () => {
             </span>
             <button
               type="button"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-xs cursor-pointer"
+              disabled
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-emerald-600/40 text-white cursor-not-allowed shadow-xs"
             >
-              <span>Generate Request Link</span>
+              <span>Generate Request Link (V1)</span>
               <Send className="w-4 h-4" />
             </button>
           </div>

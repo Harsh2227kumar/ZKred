@@ -3,8 +3,8 @@
 **Role:** Lead · backend API + DB · crypto core (zk-core) · smart contracts · ZK circuit · Bedrock AI · contract owner · merges PRs
 **Owns:** `backend/`, `packages/zk-core/`, `contracts/`, `circuits/`, `md/CONTRACTS.md`, root workspace files
 **AI tools:** Claude Code (Pro; budget it for crypto/engine work) + free tools for boilerplate
-**Current branch:** `harsh/V0-H5-zk-core`
-**Current task:** `V0-H5`
+**Current branch:** `harsh/V0-fixes-after-integration`
+**Current task:** `V0` wrap-up (Gate G0)
 
 > Only HARSH (and HARSH's AI agent) edits this file. Append; don't rewrite history.
 > Read the bottom of this file aloud at every sync.
@@ -15,9 +15,9 @@
 
 | Task ID | Task | Status | PR |
 |---|---|---|---|
-| V0-H1 | Freeze CONTRACTS.md | TODO | |
-| V0-H2 | Monorepo + backend scaffold + migration + meta endpoints | DONE | |
-| V0-H3 | Contracts + tests + Base Sepolia deploy | DONE (code + tests + deploy script); Base Sepolia deploy waits for a funded DEPLOYER_PRIVATE_KEY | |
+| V0-H1 | Freeze CONTRACTS.md | DONE (frozen at H2; changes since are changelog rows) | |
+| V0-H2 | Monorepo + backend scaffold + migration + meta endpoints | DONE | #1 |
+| V0-H3 | Contracts + tests + Base Sepolia deploy | DONE (deployed; contracts/deployments/baseSepolia.json) | #2, #9 |
 | V0-H4 | age_gte circuit + committed artifacts | DONE | |
 | V0-H5 | zk-core skeleton + BBS spike + walletCrypto | DONE (+ age proof wired to the V0-H4 circuit) | |
 
@@ -33,9 +33,9 @@
 
 | Time | To | Request | Why | Done? |
 |---|---|---|---|---|
-| 16:06 | SPARSH | In V0-S2, the backend container must run `pnpm --filter backend db:migrate` before `start`; build context = repo root (backend imports `@zkred/zk-core` from source) | backend runs TS via tsx | |
+| 16:06 | SPARSH | In V0-S2, the backend container must run `pnpm --filter backend db:migrate` before `start`; build context = repo root (backend imports `@zkred/zk-core` from source) | backend runs TS via tsx | done (backend.Dockerfile CMD) |
 | 16:40 | SPARSH | Create `contracts/.env.example` with `DEPLOYER_PRIVATE_KEY`, `BASE_SEPOLIA_RPC_URL`, `BASESCAN_API_KEY` (CONTRACTS §6). If your laptop also blocks native `.node` files, use `bash contracts/scripts/in-docker.sh test` | needed for deploy | done by HARSH (V0-H3 hardening, on request) |
-| 16:06 | SPARSH | `.env.example` additions beyond CONTRACTS §6 are optional: `LOG_LEVEL`, `AI_HEALTH_TTL_MS`, `HEALTH_CHECK_TIMEOUT_MS` | new optional config knobs | |
+| 16:06 | SPARSH | `.env.example` additions beyond CONTRACTS §6 are optional: `LOG_LEVEL`, `AI_HEALTH_TTL_MS`, `HEALTH_CHECK_TIMEOUT_MS` | new optional config knobs | done (.env.example) |
 
 ## Contract change requests
 
@@ -57,6 +57,7 @@ Format: `HH:MM | TASK-ID | STARTED/DONE/BLOCKED/HANDOFF | what happened | files`
 - 18:45 | V0-H3 | DONE | Deploy hardening: contracts/.env.example (SPARSH-owned file, created on HARSH's request; SPARSH please review) + explicit contracts/.env gitignore; circuits script renamed build → setup:keys and refuses to overwrite committed zkey/vkey without --force (a root `pnpm build` used to silently regenerate keys); chainHealth also requires deployed code at all 3 registry addresses (raw eth_getCode, uncached). Base Sepolia deploy itself still pending (needs funded deployer key) | files: contracts/.env.example, .gitignore, circuits/{build.sh,package.json}, backend/src/integrations/chain.ts, backend/test/integrations/chain.test.ts
 - 19:50 | V0-H3 | DONE | Deployed to Base Sepolia (84532): IssuerRegistry 0x7AD1dc8a22923df3a7997AC002cfb4b32Ad6AEa8, AnchorRegistry 0x12DA5d65d4C7d46d900D7512C4096503fCD29Cfd, StatusRegistry 0xeee916756f6a810034af451FC80f77aD00d8a0c0; accreditor 0xDB4C3575071fBD57c360445Fae5a61127f61F2aD; all receipts status 1, both registries wired to IssuerRegistry; backend /health db ok + chain ok against them. in-docker.sh: --env-file path converted for the Windows docker CLI. Addresses sent to SPARSH | files: contracts/deployments/baseSepolia.json, contracts/scripts/in-docker.sh
 - 20:10 | V0-H2 | DONE | Bedrock fix: Mantle client 404'd every Claude model id for our Bedrock API key in ap-south-1/us-east-1/us-west-2; switched ai/bedrock.ts to the Bedrock Runtime client (AnthropicBedrock), model id must be an inference profile (`global.anthropic.claude-sonnet-4-6`; bare `anthropic.claude-sonnet-4-6` → on-demand not supported). Local /health now status ok (db, chain, ai). SPARSH: use that model id in the EC2 .env | files: backend/src/ai/bedrock.ts, AGENTS.md, md/CONTRACTS.md
+- 21:32 | V0-fixes | DONE | Post-integration test pass (all suites, typecheck, full docker stack, every page in a browser). Fixed: backend tsc error in ai/bedrock.ts (credential options spread didn't typecheck; one constructor per credential source); Tailwind v4 theme mapping missing so every semantic class (bg-primary, text-foreground, border-border...) emitted no CSS; issuer types now match CONTRACTS (key status rotated, active_from, TxLink); fake attack counters and dead verifier button; page title; nav hidden on phones; vite dev proxy for /api; setup-ec2 swap + rerunnable gpg; scripts executable in git | files: backend/src/ai/bedrock.ts, frontend/**, infra/setup-ec2.sh, .env.example
 
 ## Notes for the pitch
 

@@ -19,22 +19,25 @@ export type CredentialSchemaField = Schemas['CredentialSchemaField'];
 // replace them with Schemas[...] aliases once gen:api picks the issuer schemas up.
 export interface IssuerKey {
   key_id: string;
-  public_key_base64url: string;
-  status: 'active' | 'retired' | 'compromised';
-  created_at: string;
-  tx_hash?: string;
+  public_key: string;
+  status: 'active' | 'rotated' | 'compromised';
+  active_from: string;
+  compromised_from: string | null;
+  tx_hash: string;
 }
 
 export interface Issuer {
   id: string;
-  name: string;
   did: string;
+  name: string;
   kind: string;
+  issuer_chain_id: string;
+  governance_address: string;
   accredited: boolean;
   keys: IssuerKey[];
+  created_at: string;
 }
 
 export interface IssuersListResponse {
   items: Issuer[];
-  next_cursor: string | null;
 }
