@@ -15,11 +15,12 @@
 
 | Task ID | Task | Status | PR |
 |---|---|---|---|
-| V0-S1 | Frontend scaffold | TODO | |
-| V0-S2 | docker-compose + Dockerfiles + Caddyfile + .env.examples | TODO | |
-| V0-S3 | GitHub repo settings, CODEOWNERS handles | TODO | |
-| V0-S4 | EC2 deploy hello-world | TODO | |
-| V0-S5 | Bedrock model access + credentials | TODO | |
+| V0-S1 | Frontend scaffold | DONE | #10 |
+| V0-S2 | docker-compose + Dockerfiles + Caddyfile + .env.examples | DONE | #11 |
+| V0-S3 | GitHub repo settings, CODEOWNERS handles | DONE | #12 |
+| V0-S4 | EC2 deploy hello-world | DONE | #13 |
+| V0-S5 | Bedrock model access + credentials | DONE | #14 |
+| V0-S6 | gen:api (OpenAPI types generation) | DONE | |
 
 ## Blocked on
 
@@ -45,7 +46,12 @@
 
 Format: `HH:MM | TASK-ID | STARTED/DONE/BLOCKED/HANDOFF | what happened | files`
 
-- HH:MM | V0-S1 | STARTED |
+- 18:50 | V0-S1 | DONE | Vite React 19 + TS + Tailwind v4 frontend scaffold; PR #10 | frontend/, pnpm-lock.yaml
+- 19:25 | V0-S2 | DONE | Container infra: docker-compose.yml; backend.Dockerfile; frontend.Dockerfile; Caddyfile; PR #11 | docker-compose.yml, infra/, *.env.example, docs/
+- 19:42 | V0-S3 | DONE | GitHub repo governance: .github/CODEOWNERS with @Harsh2227kumar & @Sparsh566; PR #12 | .github/CODEOWNERS, docs/
+- 19:50 | V0-S4 | DONE | EC2 deployment automation tooling: setup-ec2.sh, deploy.sh; PR #13 | infra/, docs/
+- 20:15 | V0-S5 | DONE | Bedrock integration setup guide: IAM policies, AnthropicBedrock SDK Runtime; PR #14 | docs/
+- 20:45 | V0-S6 | DONE | Automated OpenAPI type generation pipeline (scripts/export-openapi.ts + frontend/src/api/types.ts via openapi-typescript) | scripts/, frontend/src/api/, docs/
 
 ## Notes for the pitch
 
