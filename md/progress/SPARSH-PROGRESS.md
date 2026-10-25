@@ -20,7 +20,7 @@
 | V0-S3 | GitHub repo settings, CODEOWNERS handles | DONE | #12 |
 | V0-S4 | EC2 deploy hello-world | DONE | #13 |
 | V0-S5 | Bedrock model access + credentials | DONE | #14 |
-| V0-S6 | gen:api (OpenAPI types generation) | DONE | |
+| V0-S6 | gen:api (OpenAPI types generation) | DONE | #16 |
 
 ## Blocked on
 
