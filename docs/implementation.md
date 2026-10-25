@@ -1,8 +1,8 @@
-# V1-S2 Implementation Specification: Student Wallet
+# V1-S3 Implementation Specification: Verifier Portal
 
 > **Owner:** SPARSH  
-> **Task ID:** `V1-S2`  
-> **Branch Target:** `sparsh/V1-S2-student-wallet`
+> **Task ID:** `V1-S3`  
+> **Branch Target:** `sparsh/V1-S3-verifier-portal`
 
 ---
 
@@ -10,64 +10,74 @@
 
 ```text
 frontend/src/
-├── lib/
-│   ├── wallet-crypto.ts         # Encapsulates all @zkred/zk-core calls (WebCrypto ECDH, decryptOffer, BBS verify, backup)
-│   └── wallet-store.ts          # idb-keyval wrapper managing wallet metadata, keys, credentials, and session passphrase
 ├── api/queries/
-│   └── wallets.ts               # useCreateWallet, useOffers, useClaimOffer, useBackup, useSaveBackup
-└── features/wallet/
+│   └── verifiers.ts             # useVerifiers, useCreateVerifier, useParsePolicy, useCreateRequest, usePresentationRequest, useVerifications
+└── features/verifier/
     ├── components/
-    │   ├── WalletSetup.tsx      # Create wallet (display name + passphrase) & Restore wallet tabs
-    │   ├── WalletInbox.tsx      # Offers list with "Claim & Verify" action
-    │   ├── CredentialCard.tsx   # Credential presentation card with selective PII toggle
-    │   ├── CredentialList.tsx   # Grid of claimed credentials
-    │   └── BackupModal.tsx      # Passphrase prompt when updating/exporting encrypted backup
+    │   ├── CreateVerifierModal.tsx   # Modal to register a new verifier identity (POST /verifiers)
+    │   ├── ManualPolicyBuilder.tsx   # Visual policy builder (purpose, requirements, reveals, age predicate, never_collect)
+    │   └── VerificationStages.tsx    # 4-stage pipeline visualization nodes
     └── pages/
-        └── WalletPage.tsx       # Master wallet dashboard
+        ├── VerifierPage.tsx          # Verifier dashboard & request creation
+        └── RequestDetailPage.tsx    # Live request inspection & 2s verification polling
 ```
 
 ---
 
 ## 2. Technical Specifications
 
-### 2.1 IndexedDB Storage Schema (`idb-keyval`)
-- Key `zkred_wallet_meta`: `{ id: string, display_name: string, wallet_token: string }`
-- Key `zkred_wallet_key`: `{ privateKeyJwk: JsonWebKey, publicKeyB64: string }`
-- Key `zkred_credentials`: `SignedCredential[]` (array of held credentials)
+### 2.1 API Queries & Mutations (`api/queries/verifiers.ts`)
+- `useVerifiers()`: Calls `GET /verifiers`.
+- `useCreateVerifier()`: Calls `POST /verifiers` with `{ name }`.
+- `useParsePolicy()`: Calls `POST /presentation-requests/parse` with `{ text }`. Catches `501/502` errors to trigger manual builder fallback.
+- `useCreateRequest()`: Calls `POST /presentation-requests` with `{ verifier_id, policy, nl_text }`.
+- `usePresentationRequest(id)`: Calls `GET /presentation-requests/{id}`.
+- `useVerifications(requestId)`: Calls `GET /presentation-requests/{requestId}/verifications` with `refetchInterval: 2000`.
 
-### 2.2 Library Encapsulation (`frontend/src/lib/wallet-crypto.ts`)
-Per `AGENTS.md` §8.3, **only files in `lib/` may import `@zkred/zk-core`**:
-- `generateWalletKeys()`: Calls `walletCrypto.generateWalletKeyPair()`.
-- `decryptAndVerifyOffer(privateKeyJwk, offer, issuerBbsPublicKey)`:
-  1. `walletCrypto.decryptOffer(privateKeyJwk, offer)` -> `SignedCredential`.
-  2. `verifyCredential(credential, issuerBbsPublicKey)` -> `boolean`.
-- `encryptWalletBackup(passphrase, walletPayload)`: Calls `walletCrypto.encryptBackup(passphrase, walletPayload, 100_000)`.
-- `decryptWalletBackup(passphrase, backupPayload)`: Calls `walletCrypto.decryptBackup(passphrase, backupPayload)`.
+### 2.2 Manual Policy Builder (`ManualPolicyBuilder.tsx`)
+Constructs `PresentationPolicy`:
+```ts
+{
+  purpose: string;
+  requirements: [
+    {
+      id: "r1";
+      credential_type: "Degree" | "MedicalLicense" | "GovernmentId";
+      accredited_only: boolean; // default true
+      issuer_kinds: null;
+      issuer_dids: null;
+      reveal: string[]; // e.g. ["degree_name", "institution", "graduation_year"]
+      equals: [];
+      predicates: [{ type: "age_gte", years: 21 }];
+      require_not_revoked: boolean; // default true
+    }
+  ];
+  never_collect: ["holder_name", "dob", "address"];
+}
+```
 
-### 2.3 API Integration (`api/queries/wallets.ts`)
-- `useCreateWallet()`: Calls `POST /wallets` with `{ display_name, enc_public_key }`.
-- `useOffers(walletId, walletToken)`: Calls `GET /wallets/{walletId}/offers` with `Authorization: Bearer <wallet_token>`.
-- `useClaimOffer(walletId, walletToken)`: Calls `POST /wallets/{walletId}/offers/{offerId}/claim` with `Authorization: Bearer <wallet_token>`.
-- `useBackup(walletId, walletToken)`: Calls `GET /wallets/{walletId}/backup` with `Authorization: Bearer <wallet_token>`.
-- `useSaveBackup(walletId, walletToken)`: Calls `PUT /wallets/{walletId}/backup` with `Authorization: Bearer <wallet_token>`.
-
-### 2.4 Privacy & UI Guardrails
-- **No plaintext holder PII on servers**: Holder claims are decrypted and verified in the browser only.
-- **Selective Disclosure Toggle**: Non-PII fields (`degree_name`, `institution`, `graduation_year`) are displayed immediately. PII fields (`holder_name`, `dob`, `address`) are blurred until the user clicks *"Show on this device"*.
-- **Passphrase Security**: The recovery passphrase is held in volatile React memory only; never persisted in IndexedDB or localStorage.
+### 2.3 Real-Time Polling & Presentation Status (`RequestDetailPage.tsx`)
+- Polls `GET /presentation-requests/{id}/verifications` every 2 seconds.
+- In V1, the backend returns `{ items: [] }`.
+- UI renders an active waiting badge with spinning timer and glowing pulse: *"Awaiting holder presentation from student wallet"*.
+- Displays the 4 deterministic evaluation stages:
+  1. `issuer_signature` (BBS+ verification)
+  2. `zk_claim` (Groth16 age proof)
+  3. `revocation_status` (W3C bitstring list check)
+  4. `key_epoch_anchor` (Merkle batch root on Base Sepolia)
 
 ---
 
 ## 3. Step-by-Step Execution Plan
 
-1. **Step 1**: Implement `frontend/src/lib/wallet-crypto.ts` (wrapping `@zkred/zk-core`) and `frontend/src/lib/wallet-store.ts` (`idb-keyval` persistence).
-2. **Step 2**: Implement `frontend/src/api/queries/wallets.ts`.
-3. **Step 3**: Build `WalletSetup.tsx` (create wallet + restore wallet with passphrase validation).
-4. **Step 4**: Build `WalletInbox.tsx` (decrypt offer, verify BBS signature via issuer key, save to IndexedDB, call claim endpoint).
-5. **Step 5**: Build `CredentialCard.tsx` and `CredentialList.tsx` with selective PII visibility.
-6. **Step 6**: Wire `WalletPage.tsx` to mount the live wallet state, inbox, credential list, and backup status.
+1. **Step 1**: Add Verifier and PresentationRequest types to `frontend/src/api/schemas.ts`.
+2. **Step 2**: Implement `frontend/src/api/queries/verifiers.ts`.
+3. **Step 3**: Implement `CreateVerifierModal.tsx` and `ManualPolicyBuilder.tsx`.
+4. **Step 4**: Implement `VerificationStages.tsx`.
+5. **Step 5**: Update `VerifierPage.tsx` to mount verifier selector, NL compiler with 501 fallback, and manual policy builder.
+6. **Step 6**: Update `RequestDetailPage.tsx` to display request details, copyable wallet link, and 2s polling status.
 7. **Step 7 (Verification & Testing)**:
    - `pnpm --filter frontend typecheck`
    - `pnpm --filter frontend build`
    - `bash scripts/check-hardcoded.sh`
-   - Browser verification: create wallet, claim offer, reload page, restore wallet on clean state.
+   - Interactive browser verification.

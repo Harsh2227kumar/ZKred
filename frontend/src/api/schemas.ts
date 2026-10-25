@@ -60,6 +60,26 @@ export type Presentation = Schemas['Presentation'];
 export type Verification = Schemas['Verification'];
 export type VerificationStepResult = Schemas['VerificationStepResult'];
 
+// Aliases kept for the V1-S3 verifier portal call sites (CONTRACTS §3.4 & §3.6)
+export type VerifiersListResponse = Schemas['VerifierList'];
+export type VerifierCreateIn = Schemas['VerifierCreate'];
+export type ParseIn = Schemas['ParseIn'];
+export type RequestCreateIn = Schemas['RequestCreate'];
+export type VerificationsListResponse = Schemas['VerificationList'];
+
+// No generated component for this (inline inside PresentationPolicy)
+export interface PresentationRequirement {
+  id: string;
+  credential_type: string;
+  accredited_only: boolean;
+  issuer_kinds: string[] | null;
+  issuer_dids: string[] | null;
+  reveal: string[];
+  equals: { field: string; value: string }[];
+  predicates: { type: string; years: number }[];
+  require_not_revoked: boolean;
+}
+
 export type StolenKey = Schemas['StolenKey'];
 export type ForgeOut = Schemas['ForgeOut'];
 export type AttackRunOut = Schemas['AttackRunOut'];
