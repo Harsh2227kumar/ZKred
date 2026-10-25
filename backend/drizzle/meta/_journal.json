@@ -8,6 +8,13 @@
       "when": 1792924415756,
       "tag": "0000_brown_ego",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792931289240,
+      "tag": "0001_integrity_indexes",
+      "breakpoints": true
     }
   ]
 }

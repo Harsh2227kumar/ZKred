@@ -15,6 +15,12 @@ const EPOCH_MS = Date.UTC(1900, 0, 1);
 const MAX_DAYS = 0xffff;
 /** Salts are 248-bit, safely below the BN254 scalar field. */
 const SALT_BYTES = 31;
+/** BN254 scalar field order: Groth16 public signals are elements of [0, r). */
+const BN254_R = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
+const CANONICAL_DECIMAL = /^(0|[1-9]\d*)$/;
+
+/** snarkjs reduces public signals mod r, so "-5", "r+5" or "05" would verify like "5". Only canonical values count. */
+const isFieldElement = (s: unknown): s is string => typeof s === "string" && CANONICAL_DECIMAL.test(s) && BigInt(s) < BN254_R;
 
 function assertDays(name: string, d: number | bigint): void {
   const n = typeof d === "bigint" ? d : BigInt(d);
@@ -58,7 +64,7 @@ export function randomDobSalt(): bigint {
 /** Poseidon(dob_days, salt) as a decimal field element string (the value BBS-signed at GovernmentId index 13). */
 export async function dobCommitment(dobDays: bigint, salt: bigint): Promise<string> {
   assertDays("dobDays", dobDays);
-  if (salt < 0n) throw new ZkCoreError("INVALID_SALT", "salt must be non-negative");
+  if (salt < 0n || salt >= BN254_R) throw new ZkCoreError("INVALID_SALT", "salt must be a BN254 field element");
   return poseidon2([dobDays, salt]).toString();
 }
 
@@ -91,7 +97,7 @@ export async function proveAgeGte(i: {
  */
 export async function verifyAgeGte(i: { proof: object; publicSignals: string[]; vkey: object }): Promise<boolean> {
   try {
-    if (i.publicSignals.length !== 2) return false;
+    if (i.publicSignals.length !== 2 || !i.publicSignals.every(isFieldElement)) return false;
     return await snarkjs.groth16.verify(i.vkey, i.publicSignals, i.proof);
   } catch {
     return false;

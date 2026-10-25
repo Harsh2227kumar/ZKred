@@ -1,12 +1,14 @@
 // Roundtrip tests against the COMMITTED artifacts in build/ (the same files the wallet and verifier use).
 import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import { buildPoseidon } from "circomlibjs";
 import * as snarkjs from "snarkjs";
 import { beforeAll, describe, expect, it } from "vitest";
 
-const WASM = new URL("../build/age_gte.wasm", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
-const ZKEY = new URL("../build/age_gte.zkey", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
+// fileURLToPath also decodes %20 etc., so a checkout path with spaces works.
+const WASM = fileURLToPath(new URL("../build/age_gte.wasm", import.meta.url));
+const ZKEY = fileURLToPath(new URL("../build/age_gte.zkey", import.meta.url));
 const VKEY = new URL("../build/vkey.json", import.meta.url);
 
 const EPOCH = Date.UTC(1900, 0, 1);

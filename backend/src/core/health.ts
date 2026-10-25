@@ -31,15 +31,16 @@ async function probe(check: () => Promise<void>, timeoutMs: number): Promise<Sta
   }
 }
 
-// A Bedrock call costs money, so the AI probe result is cached (the UI polls /health often).
-let aiCache: { status: Status; at: number } | undefined;
+// A Bedrock call costs money, so the AI probe result is cached (the UI polls /health often). The in-flight probe is
+// cached too, so concurrent polls after expiry share one Bedrock call instead of each starting their own.
+let aiCache: { status: Promise<Status>; at: number } | undefined;
 
-async function aiStatus(): Promise<Status> {
+function aiStatus(): Promise<Status> {
   const now = Date.now();
-  if (aiCache && now - aiCache.at < config.AI_HEALTH_TTL_MS) return aiCache.status;
-  const status = await probe(pingModel, config.AI_TIMEOUT_MS);
-  aiCache = { status, at: now };
-  return status;
+  if (!aiCache || now - aiCache.at >= config.AI_HEALTH_TTL_MS) {
+    aiCache = { status: probe(pingModel, config.AI_TIMEOUT_MS), at: now };
+  }
+  return aiCache.status;
 }
 
 export async function getHealth(): Promise<Health> {
