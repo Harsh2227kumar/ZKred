@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Builds the age_gte circuit and its Groth16 keys.
-#   pnpm --filter circuits build
+#   pnpm --filter circuits setup:keys -- --force
+# Deliberately not named "build", so a recursive `pnpm build` (Dockerfile, CI) never regenerates the keys.
+# Refuses to run while committed artifacts exist unless --force is given.
 # Outputs (COMMITTED, so nobody else needs circom): build/age_gte.wasm, build/age_gte.zkey, build/vkey.json
 # Intermediates go to tmp/ (gitignored).
 #
@@ -15,6 +17,11 @@ CIRCUIT=age_gte
 PTAU_POWER=10            # 2^10 = 1024 ≥ constraint count (~573)
 TMP=tmp
 OUT=build
+if [ "${1:-}" != "--force" ] && { [ -e "$OUT/$CIRCUIT.zkey" ] || [ -e "$OUT/vkey.json" ]; }; then
+  echo "✗ $OUT/ already has committed keys; regenerating invalidates every existing age proof." >&2
+  echo "  Re-run with --force only if you really mean to replace them." >&2
+  exit 1
+fi
 mkdir -p "$TMP" "$OUT"
 
 entropy() { node -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))"; }
