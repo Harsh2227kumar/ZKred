@@ -3,8 +3,8 @@
 **Role:** Lead · backend API + DB · crypto core (zk-core) · smart contracts · ZK circuit · Bedrock AI · contract owner · merges PRs
 **Owns:** `backend/`, `packages/zk-core/`, `contracts/`, `circuits/`, `md/CONTRACTS.md`, root workspace files
 **AI tools:** Claude Code (Pro; budget it for crypto/engine work) + free tools for boilerplate
-**Current branch:** `harsh/V0-H2-backend-scaffold`
-**Current task:** `V0-H2`
+**Current branch:** `harsh/V0-H3-contracts`
+**Current task:** `V0-H3`
 
 > Only HARSH (and HARSH's AI agent) edits this file. Append; don't rewrite history.
 > Read the bottom of this file aloud at every sync.
@@ -17,7 +17,7 @@
 |---|---|---|---|
 | V0-H1 | Freeze CONTRACTS.md | TODO | |
 | V0-H2 | Monorepo + backend scaffold + migration + meta endpoints | DONE | |
-| V0-H3 | Contracts + tests + Base Sepolia deploy | TODO | |
+| V0-H3 | Contracts + tests + Base Sepolia deploy | DONE (code + tests + deploy script); Base Sepolia deploy waits for a funded DEPLOYER_PRIVATE_KEY | |
 | V0-H4 | age_gte circuit + committed artifacts | TODO | |
 | V0-H5 | zk-core skeleton + BBS spike + walletCrypto | TODO (layouts.ts already done in V0-H2) | |
 
@@ -34,6 +34,7 @@
 | Time | To | Request | Why | Done? |
 |---|---|---|---|---|
 | 16:06 | SPARSH | In V0-S2, the backend container must run `pnpm --filter backend db:migrate` before `start`; build context = repo root (backend imports `@zkred/zk-core` from source) | backend runs TS via tsx | |
+| 16:40 | SPARSH | Create `contracts/.env.example` with `DEPLOYER_PRIVATE_KEY`, `BASE_SEPOLIA_RPC_URL`, `BASESCAN_API_KEY` (CONTRACTS §6). If your laptop also blocks native `.node` files, use `bash contracts/scripts/in-docker.sh test` | needed for deploy | |
 | 16:06 | SPARSH | `.env.example` additions beyond CONTRACTS §6 are optional: `LOG_LEVEL`, `AI_HEALTH_TTL_MS`, `HEALTH_CHECK_TIMEOUT_MS` | new optional config knobs | |
 
 ## Contract change requests
@@ -49,6 +50,7 @@ Format: `HH:MM | TASK-ID | STARTED/DONE/BLOCKED/HANDOFF | what happened | files`
 - Pre-H0 | PLAN | DONE | Toolchain checked: Node 24.15, pnpm 12.15 (corepack), git 2.54; circom + Rust NOT installed (need the prebuilt circom binary for V0-H4) | —
 - Pre-H0 | PLAN | DONE | Hackathon kit adapted to ZKred (md/*, AGENTS/CLAUDE/GEMINI, .github, check-hardcoded) | md/, root docs
 - 16:06 | V0-H2 | DONE | pnpm monorepo root; backend Express 5 + Zod 4 config (fail-fast) + standard errors + /health (db/chain/Bedrock, AI probe cached) + /meta/enums|chain|credential-schemas + /openapi.json; Drizzle schema (14 tables) + migration 0000 applied on Postgres 16; 7 backend + 5 zk-core tests green. New folders: backend/drizzle, packages/zk-core (layouts only). Contract: CredentialSchema.fields[].source added (additive) | files: package.json, pnpm-workspace.yaml, tsconfig.base.json, backend/**, packages/zk-core/**, md/CONTRACTS.md
+- 16:40 | V0-H3 | DONE | IssuerRegistry (accreditor + governance, key epochs, markCompromised cutoff only moves earlier, compromised key stays compromised on rotate), AnchorRegistry (governance-only, active key only, block time = issuance time), StatusRegistry (list bound to first issuer); 10 Hardhat tests incl. breach scenario; deploy script writes deployments/<network>.json + exports ABIs to backend/src/integrations/abi. Windows Application Control blocks Hardhat's native EDR binary on this laptop → all hardhat commands run via `bash contracts/scripts/in-docker.sh <script>`. pnpm-workspace: allowBuilds esbuild | files: contracts/**, backend/src/integrations/abi/*, pnpm-workspace.yaml, .gitignore
 
 ## Notes for the pitch
 
