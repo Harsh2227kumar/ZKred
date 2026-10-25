@@ -8,7 +8,7 @@ All project rules live in `AGENTS.md` (imported above). This file only adds Clau
 
 1. Ask: **"Which owner are you (HARSH / SPARSH) and which task ID?"** unless the human already said.
 2. Read `md/MVP-SCOPE.md`, `md/CONTRACTS.md`, the owner's section of `md/VERSION-PLAN.md`, and the owner's `md/progress/<OWNER>-PROGRESS.md`.
-3. Run `git branch --show-current` and `git status`. If on `main`, create the owner branch before editing.
+3. Run `git branch --show-current` and `git status`. If on `main` or `dev`, create the owner branch from `dev` before editing.
 
 ## Usage budget (HARSH is on Claude Pro)
 

@@ -8,7 +8,7 @@ This file adds strict guards for agents running on free / smaller models.
 
 1. Ask: **"Which owner are you (HARSH / SPARSH) and which task ID?"** unless the human already said.
 2. Read `AGENTS.md`, `md/CONTRACTS.md`, and the task's row **and its numbered steps** in `md/VERSION-PLAN.md`, plus `md/progress/<OWNER>-PROGRESS.md`.
-3. Run `git branch --show-current`. If on `main`, create `<owner>/<task-id>-<short-name>` before editing.
+3. Run `git branch --show-current`. If on `main` or `dev`, create `<owner>/<task-id>-<short-name>` from `dev` before editing.
 
 ## Hard guards
 
