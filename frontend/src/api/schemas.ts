@@ -18,6 +18,7 @@ export type CredentialSchemaField = Schemas['CredentialSchemaField'];
 export type Issuer = Schemas['Issuer'];
 export type IssuerKey = Schemas['IssuerKey'];
 export type IssuerCreate = Schemas['IssuerCreate'];
+export type IssuerKind = Schemas['IssuerKind'];
 export type IssuersListResponse = Schemas['IssuerList'];
 export type CompromiseReport = Schemas['CompromiseReport'];
 
@@ -29,6 +30,11 @@ export type Batch = Schemas['Batch'];
 export type BatchLeaves = Schemas['BatchLeaves'];
 export type StatusListOut = Schemas['StatusListOut'];
 export type RevokeOut = Schemas['RevokeOut'];
+
+// Aliases kept for the V1-S1 issuer console call sites (md/CONTRACTS.md §3.2 & §3.6)
+export type BatchesListResponse = Schemas['BatchList'];
+export type IssuedCredentialsListResponse = Schemas['IssuedCredentialList'];
+export type WalletLookupResponse = Schemas['WalletPublic'];
 
 export type WalletCreated = Schemas['WalletCreated'];
 export type WalletPublic = Schemas['WalletPublic'];

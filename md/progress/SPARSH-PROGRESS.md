@@ -3,8 +3,8 @@
 **Role:** Frontend · DevOps (Docker, EC2, Caddy, Bedrock access) · seed pipeline · QA · docs · pitch
 **Owns:** `frontend/`, `infra/`, `docker-compose.yml`, `scripts/`, `seed/`, `docs/`, `.github/`, `README.md`, `*.env.example`
 **AI tools:** Antigravity / opencode (free models). Always paste the task ID + its numbered steps from `md/VERSION-PLAN.md`; never let the agent write crypto.
-**Current branch:** `<branch>`
-**Current task:** `V0-S4` (live EC2 URL), `V0-S5` (Bedrock access)
+**Current branch:** `sparsh/V1-S1-issuer-console`
+**Current task:** `V1-S1` (Issuer console)
 
 > Only SPARSH (and SPARSH's AI agent) edits this file. Append; don't rewrite history.
 > Read the bottom of this file aloud at every sync.
@@ -16,12 +16,13 @@
 | Task ID | Task | Status | PR |
 |---|---|---|---|
 | V0-S0 | Scope freeze & environment templates | DONE | #8 |
-| V0-S1 | Frontend scaffold | DONE | #10 |
+| V0-S1 | Frontend scaffold | DONE | #10, #24 |
 | V0-S2 | docker-compose + Dockerfiles + Caddyfile + .env.examples | DONE | #11 |
 | V0-S3 | GitHub repo settings, CODEOWNERS handles | DONE | #12 |
 | V0-S4 | EC2 deploy hello-world | IN PROGRESS: scripts merged (#13); live URL not up yet | #13 |
 | V0-S5 | Bedrock model access + credentials | IN PROGRESS: config merged (#14, #15); `/health` still shows `ai: down` | #14 |
 | V0-S6 | gen:api (openapi-typescript → src/api/types.ts) | DONE | #16 |
+| V1-S1 | Issuer console (real API & Base Sepolia) | DONE | #26 |
 
 ## Blocked on
 
@@ -57,6 +58,8 @@ Format: `HH:MM | TASK-ID | STARTED/DONE/BLOCKED/HANDOFF | what happened | files`
 - 20:45 | V0-S6 | DONE | OpenAPI type generation; PR #16 | frontend/src/api/
 - 21:15 | V0-INTEGRATION | DONE | (HARSH) Merged PRs #8, #10–#16 into harsh/V0-integration and fixed review findings: frontend Docker build bakes VITE_API_BASE_URL / VITE_ZK_ARTIFACTS_BASE_URL (bundle threw on load before); gen:api script + generated-only types.ts, aliases in api/schemas.ts, client typed with paths; issuer pages show 501 until V1-H1; removed fake wallet/consent data and hardcoded chain name (ChainName from /meta/chain, steps from /meta/enums); pnpm 12.15.0 in Dockerfiles; .dockerignore; deploy.sh waits for /health; secrets blank in .env.example; removed docs/plan.md, docs/implementation.md, scripts/export-openapi.ts | frontend/, infra/, .env.example, scripts/.env.example, .dockerignore
 - 00:54 | V0-S1 | DONE | Switched palette to teal/ocean/plum (#79bab6 mint, #06838d teal, #014f85 navy, #2e036b plum) across design tokens and all UI views; PR #24 | frontend/src/index.css, frontend/src/components/, frontend/src/features/
+- 01:03 | V1-PLAN | DONE | Authored comprehensive V1 Master Plan and Implementation Specification for walking skeleton (V1-S1 to V1-S5) | docs/plan.md, docs/implementation.md
+- 01:38 | V1-S1 | DONE | Implemented Issuer Console: admin token auth, list & register issuers, keys table with rotation, schema-driven issue form with recipient lookup, batches table with Base Sepolia anchoring; typecheck & build green; browser verified | frontend/src/api/, frontend/src/features/issuer/, frontend/src/lib/
 
 ## Notes for the pitch
 
