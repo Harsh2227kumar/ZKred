@@ -36,14 +36,14 @@ export const Hex: React.FC<HexProps> = ({
     <button
       type="button"
       onClick={handleCopy}
-      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md font-mono text-xs bg-muted/60 hover:bg-muted text-foreground/80 hover:text-foreground transition-all border border-border/50 group cursor-pointer ${className}`}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-mono text-[11px] bg-card hover:bg-muted text-foreground transition-all border border-border group cursor-pointer ${className}`}
       title={`Click to copy: ${value}`}
     >
       <span>{displayVal}</span>
       {copied ? (
-        <Check className="w-3 h-3 text-emerald-500 animate-in fade-in zoom-in" />
+        <Check className="w-3 h-3 text-mint animate-in fade-in zoom-in" />
       ) : (
-        <Copy className="w-3 h-3 opacity-40 group-hover:opacity-100 transition-opacity" />
+        <Copy className="w-3 h-3 text-muted-foreground group-hover:text-foreground transition-colors" />
       )}
     </button>
   );

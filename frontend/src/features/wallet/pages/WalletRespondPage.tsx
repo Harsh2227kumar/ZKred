@@ -146,8 +146,8 @@ export const WalletRespondPage: React.FC = () => {
                 <p className="text-xs text-foreground">{lines.revealed.length ? lines.revealed.join(', ') : 'No personal fields'}</p>
                 <p className="text-[11px] text-muted-foreground">Always included: credential type, issuer, signing key, batch and revocation slot.</p>
               </div>
-              <div className="p-4 rounded-xl border border-violet-500/20 bg-violet-500/5 space-y-1.5">
-                <div className="flex items-center gap-2 text-xs font-bold text-violet-500 uppercase tracking-wider">
+              <div className="p-4 rounded-xl border border-mint/20 bg-mint/5 space-y-1.5">
+                <div className="flex items-center gap-2 text-xs font-bold text-mint uppercase tracking-wider">
                   <ShieldCheck className="w-4 h-4" /> Checked / proven (nothing more revealed)
                 </div>
                 <ul className="text-xs text-foreground list-disc pl-4">

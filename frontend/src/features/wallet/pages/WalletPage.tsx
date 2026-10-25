@@ -41,7 +41,7 @@ const UnlockForm: React.FC<{ onUnlock: (p: string) => Promise<void> }> = ({ onUn
         required
         className="px-3 py-1.5 text-sm rounded-lg border border-border bg-background"
       />
-      <button type="submit" disabled={busy} className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold bg-violet-600 text-white disabled:opacity-50">
+      <button type="submit" disabled={busy} className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold bg-primary text-white disabled:opacity-50">
         {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Unlock
       </button>
     </form>
@@ -85,7 +85,7 @@ export const WalletPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-border/40">
         <div>
           <div className="flex items-center gap-2">
-            <Wallet className="w-6 h-6 text-violet-500" />
+            <Wallet className="w-6 h-6 text-mint" />
             <h1 className="text-2xl font-bold tracking-tight text-foreground">Holder Wallet</h1>
           </div>
           <p className="text-sm text-muted-foreground mt-1">Credentials held only in your browser (IndexedDB), backed up encrypted.</p>
@@ -112,7 +112,7 @@ export const WalletPage: React.FC = () => {
                 <EmptyState
                   title="No credentials yet"
                   description={`Ask an issuer to issue to “${wallet.display_name}”, then check your inbox.`}
-                  icon={<ShieldCheck className="w-8 h-8 text-violet-500" />}
+                  icon={<ShieldCheck className="w-8 h-8 text-mint" />}
                 />
               ) : (
                 <div className="space-y-4">
@@ -127,7 +127,7 @@ export const WalletPage: React.FC = () => {
             <div className="space-y-6">
               <div className="p-5 rounded-xl border border-border/60 bg-card space-y-3">
                 <div className="flex items-center gap-2 text-sm font-bold text-foreground">
-                  <Inbox className="w-4 h-4 text-violet-500" />
+                  <Inbox className="w-4 h-4 text-mint" />
                   <span>Credential inbox</span>
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -137,7 +137,7 @@ export const WalletPage: React.FC = () => {
                   type="button"
                   disabled={!unlocked || syncing}
                   onClick={() => checkInbox(false)}
-                  className="w-full inline-flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-lg bg-violet-600 text-white hover:bg-violet-600/90 disabled:opacity-50"
+                  className="w-full inline-flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-lg bg-primary text-white hover:bg-primary/90 disabled:opacity-50"
                 >
                   {syncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
                   Check inbox

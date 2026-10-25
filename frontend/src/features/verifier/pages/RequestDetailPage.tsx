@@ -31,13 +31,14 @@ const CODE_TEXT: Record<string, string> = {
   CHAIN_UNAVAILABLE: 'Chain unreachable (fail closed)',
 };
 
-const EvalChain: React.FC<{ policy: PresentationPolicy; verification: Verification; stepOrder: { value: string; label: string }[] }> = ({
+/** One row of 4 nodes per requirement. Without the policy (request expired → 410) the requirement ids come from the steps. */
+const EvalChain: React.FC<{ policy?: PresentationPolicy; verification: Verification; stepOrder: { value: string; label: string }[] }> = ({
   policy,
   verification,
   stepOrder,
 }) => (
   <div className="space-y-6">
-    {policy.requirements.map((r) => {
+    {(policy?.requirements ?? [...new Set(verification.steps.map((s) => s.requirement_id))].map((id) => ({ id, credential_type: '' }))).map((r) => {
       const steps = verification.steps.filter((s) => s.requirement_id === r.id);
       // dob_commitment is only the anchor of the age proof (a big field element), not something a person reads.
       const revealed = Object.fromEntries(Object.entries(verification.revealed[r.id] ?? {}).filter(([k]) => k !== 'dob_commitment'));
@@ -134,7 +135,11 @@ export const RequestDetailPage: React.FC = () => {
       </div>
 
       {req.error ? (
-        <ErrorState error={req.error} />
+        shown ? (
+          <p className="text-xs text-muted-foreground">This request has expired; its results are kept below.</p>
+        ) : (
+          <ErrorState error={req.error} />
+        )
       ) : (
         req.data &&
         !accepted && (
@@ -164,8 +169,8 @@ export const RequestDetailPage: React.FC = () => {
         </div>
         {verifications.error ? (
           <ErrorState error={verifications.error} />
-        ) : shown && req.data ? (
-          <EvalChain policy={req.data.policy} verification={shown} stepOrder={stepOrder} />
+        ) : shown ? (
+          <EvalChain policy={req.data?.policy} verification={shown} stepOrder={stepOrder} />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             {stepOrder.map((s, i) => (

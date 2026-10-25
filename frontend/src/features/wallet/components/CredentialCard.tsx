@@ -44,7 +44,7 @@ export const CredentialCard: React.FC<{
     <div className="p-5 rounded-xl border border-border/60 bg-card space-y-4">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-lg bg-violet-500/10 text-violet-500">
+          <div className="p-2.5 rounded-lg bg-mint/10 text-mint">
             <Icon className="w-5 h-5" />
           </div>
           <div>

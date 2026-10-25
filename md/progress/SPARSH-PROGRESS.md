@@ -56,6 +56,7 @@ Format: `HH:MM | TASK-ID | STARTED/DONE/BLOCKED/HANDOFF | what happened | files`
 - 20:30 | V0-SYNC | DONE | Synced Base Sepolia registry addresses & Bedrock model id into .env.example; PR #15 | .env.example, scripts/.env.example, frontend/.env.example
 - 20:45 | V0-S6 | DONE | OpenAPI type generation; PR #16 | frontend/src/api/
 - 21:15 | V0-INTEGRATION | DONE | (HARSH) Merged PRs #8, #10–#16 into harsh/V0-integration and fixed review findings: frontend Docker build bakes VITE_API_BASE_URL / VITE_ZK_ARTIFACTS_BASE_URL (bundle threw on load before); gen:api script + generated-only types.ts, aliases in api/schemas.ts, client typed with paths; issuer pages show 501 until V1-H1; removed fake wallet/consent data and hardcoded chain name (ChainName from /meta/chain, steps from /meta/enums); pnpm 12.15.0 in Dockerfiles; .dockerignore; deploy.sh waits for /health; secrets blank in .env.example; removed docs/plan.md, docs/implementation.md, scripts/export-openapi.ts | frontend/, infra/, .env.example, scripts/.env.example, .dockerignore
+- 00:54 | V0-S1 | DONE | Switched palette to teal/ocean/plum (#79bab6 mint, #06838d teal, #014f85 navy, #2e036b plum) across design tokens and all UI views; PR #24 | frontend/src/index.css, frontend/src/components/, frontend/src/features/
 
 ## Notes for the pitch
 

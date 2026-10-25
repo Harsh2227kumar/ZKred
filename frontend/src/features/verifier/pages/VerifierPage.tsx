@@ -101,7 +101,7 @@ export const VerifierPage: React.FC = () => {
         <div className="lg:col-span-2 space-y-6">
           <div className="p-6 rounded-2xl border border-border/60 bg-card space-y-4 shadow-sm">
             <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              <Sparkles className="w-4 h-4 text-violet-500" />
+              <Sparkles className="w-4 h-4 text-mint" />
               <span>AI policy generator (Claude on AWS Bedrock)</span>
             </div>
             <textarea
@@ -120,7 +120,7 @@ export const VerifierPage: React.FC = () => {
                 type="button"
                 onClick={runParse}
                 disabled={parse.isPending || text.trim().length < 10}
-                className="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold bg-violet-600 text-white hover:bg-violet-600/90 disabled:opacity-50"
+                className="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold bg-primary text-white hover:bg-primary/90 disabled:opacity-50"
               >
                 {parse.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                 Generate policy

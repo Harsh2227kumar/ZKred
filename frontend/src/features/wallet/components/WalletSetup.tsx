@@ -5,7 +5,7 @@ import { toUserMessage } from '@/api/client';
 import { MIN_PASSPHRASE_LENGTH, type useWalletSession } from '../hooks/useWalletSession';
 
 const inputClass =
-  'w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-violet-500 focus:outline-hidden';
+  'w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-mint focus:outline-hidden';
 
 type Session = ReturnType<typeof useWalletSession>;
 
@@ -39,7 +39,7 @@ export const WalletSetup: React.FC<{ session: Session }> = ({ session }) => {
   return (
     <div className="max-w-md mx-auto p-8 rounded-2xl border border-border/60 bg-card space-y-6 shadow-sm">
       <div className="text-center space-y-2">
-        <div className="w-12 h-12 rounded-xl bg-violet-500/10 text-violet-500 mx-auto flex items-center justify-center">
+        <div className="w-12 h-12 rounded-xl bg-mint/10 text-mint mx-auto flex items-center justify-center">
           <KeyRound className="w-6 h-6" />
         </div>
         <h2 className="text-xl font-bold text-foreground">Set up your ZK wallet</h2>
@@ -92,7 +92,7 @@ export const WalletSetup: React.FC<{ session: Session }> = ({ session }) => {
         <button
           type="submit"
           disabled={busy}
-          className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold bg-violet-600 text-white hover:bg-violet-600/90 disabled:opacity-50"
+          className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold bg-primary text-white hover:bg-primary/90 disabled:opacity-50"
         >
           {busy && <Loader2 className="w-4 h-4 animate-spin" />}
           {mode === 'create' ? 'Create browser wallet' : 'Restore wallet'}
