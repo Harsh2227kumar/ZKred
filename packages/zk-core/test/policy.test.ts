@@ -38,6 +38,14 @@ describe("PresentationPolicySchema", () => {
     expect(PresentationPolicySchema.safeParse(policy({ reveal: ["degree_name"] })).success).toBe(false);
   });
 
+  it("rejects revealing dob_salt (with dob_commitment it lets a verifier brute-force the date of birth)", () => {
+    const r = PresentationPolicySchema.safeParse(policy({ reveal: ["dob_salt"] }));
+    expect(r.success).toBe(false);
+    expect(r.error?.issues.some((i) => i.path.join(".") === "requirements.0.reveal.0")).toBe(true);
+    // Its public counterpart stays revealable.
+    expect(PresentationPolicySchema.safeParse(policy({ reveal: ["dob_commitment"] })).success).toBe(true);
+  });
+
   it("rejects equals on a field that is not revealed", () => {
     expect(PresentationPolicySchema.safeParse(policy({ equals: [{ field: "address", value: "x" }] })).success).toBe(false);
     expect(PresentationPolicySchema.safeParse(policy({ equals: [{ field: "issuer_did", value: "x" }] })).success).toBe(true);
