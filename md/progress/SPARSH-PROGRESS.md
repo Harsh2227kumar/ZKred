@@ -26,7 +26,7 @@
 | V1-S2 | Student Wallet (setup, inbox, credentials, backup) | DONE | #27 |
 | V1-S3 | Verifier portal (verifier create, manual policy builder, polling) | DONE | #28 |
 | V1-S4 | Seed pipeline v1 (seed/*.json, scripts/seed.ts, idempotent demo state) | DONE | #30 |
-| V1-S5 | Wallet respond page shell (presentation request, consent tiers, credential matching) | DONE | PR #31 (pending push) |
+| V1-S5 | Wallet respond page shell (presentation request, consent tiers, credential matching) | DONE | #31 |
 
 ## Blocked on
 
