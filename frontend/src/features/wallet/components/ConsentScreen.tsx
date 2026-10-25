@@ -34,9 +34,15 @@ export const ConsentScreen: React.FC<ConsentScreenProps> = ({
   const requirements = request.policy?.requirements || [];
   const neverCollectFields = request.policy?.never_collect || ['holder_name', 'dob', 'address'];
 
-  // Check matching status for each requirement
+  // Check matching status for each requirement (checking credential type and equality constraints)
   const requirementMatches = requirements.map((req) => {
-    const matched = localCredentials.find((c) => c.type === req.credential_type);
+    const matched = localCredentials.find((c) => {
+      if (c.type !== req.credential_type) return false;
+      if (req.equals && req.equals.length > 0) {
+        return req.equals.every((eq) => String(c.values?.[eq.field] ?? '') === eq.value);
+      }
+      return true;
+    });
     return {
       requirement: req,
       matchedCredential: matched || null,
@@ -148,20 +154,33 @@ export const ConsentScreen: React.FC<ConsentScreenProps> = ({
                     </span>
                   </div>
 
+                  {requirement.equals && requirement.equals.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      {requirement.equals.map((eq) => (
+                        <span
+                          key={eq.field}
+                          className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-[#231a3d] text-[#f0f7f7] border border-[#79bab6]/30"
+                        >
+                          Requires {eq.field} = "{eq.value}"
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
                   {matchedCredential ? (
                     <p className="text-xs text-[#79bab6] mt-1">
                       Matched from wallet:{' '}
                       <span className="font-medium">
                         {matchedCredential.values?.degree_name ||
                           matchedCredential.values?.license_type ||
-                          matchedCredential.values?.id_number ||
+                          (matchedCredential.values?.nationality ? `National ID (${matchedCredential.values.nationality})` : null) ||
                           matchedCredential.type}
                       </span>
                       {matchedCredential.values?.institution && ` (${matchedCredential.values.institution})`}
                     </p>
                   ) : (
                     <p className="text-xs text-[#fb7185] mt-1">
-                      No matching {requirement.credential_type} found in local IndexedDB.
+                      No matching {requirement.credential_type} {requirement.equals?.length ? 'meeting criteria' : ''} found in local IndexedDB.
                     </p>
                   )}
                 </div>
