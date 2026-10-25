@@ -8,8 +8,13 @@ set -euo pipefail
 here="$(cd "$(dirname "$0")/.." && pwd)"
 repo="$(cd "$here/.." && pwd)"
 if command -v cygpath >/dev/null 2>&1; then repo="$(cygpath -m "$repo")"; fi
+env_file="$here/.env"
 env_args=()
-[ -f "$here/.env" ] && env_args=(--env-file "$here/.env")
+if [ -f "$env_file" ]; then
+  # MSYS_NO_PATHCONV below stops Git Bash from rewriting paths, so the Windows docker CLI needs F:/... not /f/...
+  if command -v cygpath >/dev/null 2>&1; then env_file="$(cygpath -m "$env_file")"; fi
+  env_args=(--env-file "$env_file")
+fi
 
 MSYS_NO_PATHCONV=1 docker run --rm -i \
   -v "$repo:/repo" \
