@@ -18,7 +18,7 @@
 | V0-S1 | Frontend scaffold | DONE | #10 |
 | V0-S2 | docker-compose + Dockerfiles + Caddyfile + .env.examples | DONE | #11 |
 | V0-S3 | GitHub repo settings, CODEOWNERS handles | DONE | #12 |
-| V0-S4 | EC2 deploy hello-world | DONE | |
+| V0-S4 | EC2 deploy hello-world | DONE | #13 |
 | V0-S5 | Bedrock model access + credentials | TODO | |
 
 ## Blocked on
