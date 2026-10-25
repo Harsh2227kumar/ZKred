@@ -41,6 +41,51 @@ Only when `dev` is stable — not after every PR.
 Conventional + task ID: `feat(frontend): V1-S3 verifier result page polls verifications`
 Types: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`.
 
+## Testing
+
+**The test type follows from what the task touches.** The task owner writes the tests in the same PR; nobody "adds tests later".
+
+| If the task… | It needs | Written |
+|---|---|---|
+| **Decides accept / reject**: crypto, verification, revocation, breach, auth (admin / wallet tokens) | **TDD**: write the failing *attack* test first, then the code | Before the code |
+| **Adds or changes an endpoint or a DB write** | **Integration test**: real Postgres (+ local Hardhat chain if it writes on-chain); happy path + at least one bad request that must return 4xx, never 500 | Same PR |
+| **Is pure logic** (helpers, parsing, mapping) | **Unit test** | Same PR |
+| **Is UI, docs, infra or seed** | **Manual check**, written as steps under "How to test" in the PR | At review |
+
+Rules:
+
+- **Every security check gets at least one test where an attacker tries to get past it.** Happy-path tests alone missed the V0 age-proof bypass: valid proofs passed, but nobody tried a forged public signal.
+- Test the *failure* paths of integrations too (wrong chain, DB down, model returns junk), not just "it works".
+- Tests live in `test/` mirroring `src/` (AGENTS.md §7). No literals for keys or records: use factories (AGENTS.md §2).
+- In the PR description, write one line: `Tests: TDD | integration | unit | manual — <what>`. The reviewer rejects the PR if it doesn't match the table above.
+
+**Gates**
+
+| When | What runs | Who |
+|---|---|---|
+| Every PR | Typecheck + all tests + `check-hardcoded.sh` (by hand until CI exists, then CI as a required check) | Author; reviewer checks it's green |
+| Every `dev` → `main` release | End-to-end demo flow on `dev` (issue → claim → present → verify; revoke → rejected; compromise → in-window rejected) | Releaser. A failed demo means no release |
+
+CI (`.github/workflows/ci.yml`, V1.3-S2) should land **before** the V1 endpoint work, not after it, so every V1 PR is checked automatically.
+
+### Which test for which task
+
+| Task | Owner | Test type | Must include |
+|---|---|---|---|
+| V1-H1 issuers, keys, chain | HARSH | Integration (API + DB + Hardhat node) · unit for gov-key encryption | non-admin token → 401; on-chain issuer matches DB |
+| V1-H2 issuance, batches, anchor | HARSH | Integration · **TDD** for batch/status slots | each credential gets a unique status index; leaf lands in the open batch; anchored root = `merkleRoot(leaves)` |
+| V1-H3 wallet endpoints | HARSH | Integration · **TDD** for auth | wallet A's token can't read or claim wallet B's offers or backup |
+| V1-H4 verifiers + requests | HARSH | Integration | expired request → 410; `parse` / `presentations` → 501 until V1.1 |
+| V1.1-H1 `buildPresentation` | HARSH | **TDD** (zk-core) | build → verify round-trip; missing credential → `MISSING_CREDENTIAL`; never reveals a `never_collect` field |
+| V1.1-H2 verifier engine | HARSH | **TDD** (most important) | one failing test per step code; disclosed `1`/`2` must equal the item's `issuer_did`/`key_id`; `age_proof.public_signals[0]` must equal disclosed `13`; nonce reuse → `NONCE_USED` |
+| V1.1-H3 Bedrock policy | HARSH | Unit with a stubbed model | junk output → `AI_BAD_OUTPUT` after 1 retry; never returns an unvalidated policy |
+| V1.2-H1 revocation | HARSH | **TDD** | revoked → `REVOKED`; edited list → `REVOCATION_LIST_TAMPERED` |
+| V1.2-H2 breach + reissue | HARSH | **TDD** | forged ✗, legacy ✓, reissued ✓; reissue refuses a forged or revoked credential |
+| V1.2-H3 attack endpoints | HARSH | Integration | 404 when `DEMO_MODE=false`; counters match |
+| V1-S1…S5, V1.1-S1…S3, V1.2-S1…S4 (UI) | SPARSH | Manual (PR steps) | API types from `gen:api` only, so contract drift fails the typecheck |
+| V1-S4 seed | SPARSH | Manual | running it twice changes nothing (idempotent) |
+| V1.1-S4 QA pass, releases | SPARSH | End-to-end demo on EC2 | bugs logged in the progress file |
+
 ## Pull requests
 
 - Feature PRs target **`dev`**, never `main`.
