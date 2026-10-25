@@ -166,26 +166,28 @@ export const RequestDetailPage: React.FC = () => {
         isPolling={!isLoadingVerifications}
       />
 
-      {/* Prominent Privacy-by-Design Card */}
-      <div className="p-5 rounded-3xl border border-[#231a3d] bg-[#130e24] flex items-start gap-4">
-        <div className="p-2.5 rounded-2xl bg-[#06838d]/15 text-[#79bab6] shrink-0">
-          <Lock className="w-5 h-5" />
-        </div>
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <h4 className="text-sm font-semibold text-[#f0f7f7]">Zero-Knowledge Privacy Guarantee</h4>
-            <ShieldCheck className="w-4 h-4 text-[#79bab6]" />
+      {/* Privacy-by-Design Card shown when awaiting presentation */}
+      {verifications.length === 0 && (
+        <div className="p-5 rounded-3xl border border-[#231a3d] bg-[#130e24] flex items-start gap-4">
+          <div className="p-2.5 rounded-2xl bg-[#06838d]/15 text-[#79bab6] shrink-0">
+            <Lock className="w-5 h-5" />
           </div>
-          <p className="text-xs text-[#8ea5a8] leading-relaxed">
-            This verification portal strictly enforces mathematical privacy. Student PII ({' '}
-            <span className="font-mono text-[#79bab6]">
-              {(request.policy?.never_collect || ['holder_name', 'dob', 'address']).join(', ')}
-            </span>{' '}
-            ) is never transmitted over the network or stored in databases. Verification is mathematically performed via
-            BBS+ blinded signatures, Poseidon Merkle tree inclusion, and Groth16 zk-SNARK range proofs.
-          </p>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <h4 className="text-sm font-semibold text-[#f0f7f7]">Zero-Knowledge Privacy Guarantee</h4>
+              <ShieldCheck className="w-4 h-4 text-[#79bab6]" />
+            </div>
+            <p className="text-xs text-[#8ea5a8] leading-relaxed">
+              This verification portal strictly enforces mathematical privacy. Student PII ({' '}
+              <span className="font-mono text-[#79bab6]">
+                {(request.policy?.never_collect || ['holder_name', 'dob', 'address']).join(', ')}
+              </span>{' '}
+              ) is never transmitted over the network or stored in databases. Verification is mathematically performed via
+              BBS+ blinded signatures, Poseidon Merkle tree inclusion, and Groth16 zk-SNARK range proofs.
+            </p>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
