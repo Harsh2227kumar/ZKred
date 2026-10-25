@@ -34,7 +34,7 @@
 
 | Time | To | Request | Why | Done? |
 |---|---|---|---|---|
-| | | | | |
+| 21:30 | HARSH | Fix `backend/src/ai/bedrock.ts` `AnthropicBedrock` constructor typing | `pnpm --filter backend typecheck` fails due to overload ambiguity with `{ apiKey: null }` and optional AWS keys | No |
 
 ## Contract change requests (to HARSH)
 
