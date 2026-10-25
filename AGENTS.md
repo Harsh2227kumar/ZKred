@@ -116,7 +116,7 @@ Before every commit, run `bash scripts/check-hardcoded.sh`. It must pass.
 
 ## 5. Git rules for agents
 
-- Never commit to or push `main`. Work on the owner's branch: `<owner>/<task-id>-<short-name>`, e.g. `sparsh/V1-S2-wallet-inbox`.
+- Never commit to or push `main` or `dev`. Work on the owner's branch: `<owner>/<task-id>-<short-name>`, e.g. `sparsh/V1-S2-wallet-inbox`.
 - Never force-push, never `git reset --hard` on shared branches, never merge PRs.
 - Commit after every working step: `feat(frontend): V1-S2 wallet inbox claims offers`.
 - Before pushing: `git status`, `git diff --stat`, run checks, run `scripts/check-hardcoded.sh`.

@@ -10,6 +10,6 @@ trigger: always_on
 4. Never write cryptography outside `packages/zk-core/`, `circuits/`, `contracts/`. The frontend calls `@zkred/zk-core` only.
 5. Zero hardcoded data: config via the single config module; data via the API; option lists via `/meta/enums`.
 6. Unfinished logic = explicit `501` / thrown error, never fake data. Verification fails closed.
-7. Work on branch `<owner>/<task-id>-<name>`; never commit to `main`, never force-push, never merge.
+7. Work on branch `<owner>/<task-id>-<name>`; never commit to `main` or `dev`, never force-push, never merge.
 8. Keep the fixed skeleton + anchors (`AGENTS.md` §8.1); create files/subfolders freely inside them (§8.2); never break the dependency direction (§8.3).
 9. Before finishing: run the owner's checks + `bash scripts/check-hardcoded.sh`, list changed files, append one progress-log line.
