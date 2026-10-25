@@ -50,7 +50,7 @@ Format: `HH:MM | TASK-ID | STARTED/DONE/BLOCKED/HANDOFF | what happened | files`
 - 19:42 | V0-S3 | DONE | GitHub repo governance: .github/CODEOWNERS with @Harsh2227kumar & @Sparsh566; PR #12 | .github/CODEOWNERS, docs/
 - 19:50 | V0-S4 | DONE | EC2 deployment automation tooling: setup-ec2.sh, deploy.sh; PR #13 | infra/, docs/
 - 20:15 | V0-S5 | DONE | Bedrock integration setup guide: IAM policies, AnthropicBedrock SDK Runtime; PR #14 | docs/
-- 20:30 | V0-SYNC | DONE | Synced Base Sepolia deployed contract addresses & Bedrock Runtime model ID into .env.example | .env.example, scripts/.env.example, frontend/.env.example
+- 20:30 | V0-SYNC | DONE | Synced Base Sepolia deployed contract addresses & Bedrock Runtime model ID into .env.example; PR #15 | .env.example, scripts/.env.example, frontend/.env.example
 
 ## Notes for the pitch
 
