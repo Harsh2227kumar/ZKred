@@ -23,7 +23,7 @@
 | V0-S5 | Bedrock model access + credentials | IN PROGRESS: config merged (#14, #15); `/health` still shows `ai: down` | #14 |
 | V0-S6 | gen:api (openapi-typescript → src/api/types.ts) | DONE | #16 |
 | V1-S1 | Issuer console (real API & Base Sepolia) | DONE | #26 |
-| V1-S2 | Student Wallet (setup, inbox, credentials, backup) | DONE | |
+| V1-S2 | Student Wallet (setup, inbox, credentials, backup) | DONE | #27 |
 
 ## Blocked on
 
