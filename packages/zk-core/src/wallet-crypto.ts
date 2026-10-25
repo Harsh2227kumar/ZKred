@@ -21,6 +21,8 @@ export interface JsonWebKey {
 const OFFER_HKDF_INFO = utf8ToBytes("zkred:offer:v1");
 const ECDH_PARAMS = { name: "ECDH", namedCurve: "P-256" } as const;
 const IV_BYTES = 12;
+/** PBKDF2-HMAC-SHA256 work factor for wallet backups (OWASP Password Storage Cheat Sheet recommendation). */
+export const BACKUP_KDF_ITERATIONS = 600_000;
 const SALT_BYTES = 16;
 
 function subtle(): SubtleCrypto {

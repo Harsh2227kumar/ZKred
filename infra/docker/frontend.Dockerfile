@@ -20,6 +20,8 @@ ENV VITE_API_BASE_URL=$VITE_API_BASE_URL \
 # Copy workspace files
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
 COPY frontend ./frontend
+# The wallet builds proofs in the browser with @zkred/zk-core (workspace package, bundled by Vite).
+COPY packages/zk-core ./packages/zk-core
 
 # Install dependencies strictly with lockfile
 RUN pnpm install --frozen-lockfile

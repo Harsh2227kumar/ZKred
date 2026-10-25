@@ -26,10 +26,11 @@ const today = dateToDays(new Date().toISOString().slice(0, 10));
 let artifacts: { wasm: ArrayBuffer; zkey: ArrayBuffer };
 
 type Issuer = Awaited<ReturnType<typeof createIssuer>>;
+type Jwk = Awaited<ReturnType<typeof walletCrypto.generateWalletKeyPair>>["privateKeyJwk"];
 interface Holder {
   id: string;
   token: string;
-  privateKeyJwk: JsonWebKey;
+  privateKeyJwk: Jwk;
 }
 
 async function newHolder(): Promise<Holder> {
@@ -38,7 +39,7 @@ async function newHolder(): Promise<Holder> {
     .post(`${api}/wallets`)
     .send({ display_name: uniqueSuffix("holder"), enc_public_key: keys.publicKeyB64 })
     .expect(201);
-  return { id: res.body.id, token: res.body.wallet_token, privateKeyJwk: keys.privateKeyJwk as JsonWebKey };
+  return { id: res.body.id, token: res.body.wallet_token, privateKeyJwk: keys.privateKeyJwk };
 }
 
 function claimsFor(type: CredentialType, over: Record<string, string | number> = {}): Record<string, string | number> {
@@ -115,7 +116,7 @@ async function present(req: { id: string; nonce: string; policy: PresentationPol
   return buildPresentation({ request: req, credentials: creds, issuerPublicKeys, batchLeaves, todayDays: today, artifacts });
 }
 
-const submit = (requestId: string, body: unknown) => request(app).post(`${api}/presentation-requests/${requestId}/presentations`).send(body);
+const submit = (requestId: string, body: object) => request(app).post(`${api}/presentation-requests/${requestId}/presentations`).send(body);
 
 async function verifyOnce(policy: PresentationPolicy, creds: SignedCredential[]) {
   const req = await openRequest(policy);

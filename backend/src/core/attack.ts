@@ -6,9 +6,11 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import {
   CREDENTIAL_LAYOUTS,
-  buildPresentation,
-  dateToDays,
+  deriveDisclosure,
+  merkleProof,
+  revealFieldsFor,
   signCredential,
+  type Presentation,
   type Hex32,
   type PresentationPolicy,
   type SignedCredential,
@@ -132,7 +134,7 @@ export async function verifyForged(mode: VerificationMode): Promise<AttackRunOut
   const forgeries = await repo.listForgeries();
   const policy = degreeCheckPolicy();
   const sources = createSources();
-  const todayDays = dateToDays(new Date().toISOString().slice(0, 10));
+  const requirement = policy.requirements[0]!;
   const keys = new Map<string, Uint8Array>();
   const leaves = new Map<string, Hex32[]>();
   const byCode: Record<string, number> = {};
@@ -147,21 +149,35 @@ export async function verifyForged(mode: VerificationMode): Promise<AttackRunOut
     }
     if (!leaves.has(batchId)) leaves.set(batchId, ((await issuanceRepo.findBatch(batchId))?.leaves ?? []) as Hex32[]);
 
-    const request = { id: randomUUID(), nonce: randomBytes(32).toString("base64url"), policy };
+    const nonce = randomBytes(32);
+    const request = { nonce: nonce.toString("base64url"), policy };
     let code: string;
     try {
-      const presentation = await buildPresentation({
-        request,
-        credentials: [cred],
-        issuerPublicKeys: Object.fromEntries(keys) as Record<Hex32, Uint8Array>,
-        batchLeaves: Object.fromEntries(leaves) as Record<Hex32, Hex32[]>,
-        todayDays,
-        artifacts: { wasm: "", zkey: "" }, // degrees need no age proof
-      });
+      // What a holder's wallet would send (buildPresentation minus its own signature pre-check, which the
+      // engine repeats anyway): a nonce-bound disclosure plus the commitment's Merkle path.
+      const key = keys.get(cred.key_id);
+      if (!key) throw new Error("unknown key");
+      const { disclosed, bbsProof } = await deriveDisclosure(cred, key, revealFieldsFor(requirement), nonce);
+      const presentation: Presentation = {
+        request_id: randomUUID(),
+        nonce: request.nonce,
+        items: [
+          {
+            requirement_id: requirement.id,
+            credential_type: cred.type,
+            issuer_did: cred.issuer_did,
+            key_id: cred.key_id,
+            disclosed,
+            bbs_proof: Buffer.from(bbsProof).toString("base64url"),
+            merkle_proof: merkleProof(leaves.get(batchId) ?? [], cred.values.commitment as Hex32),
+            age_proof: null,
+          },
+        ],
+      };
       const outcome = await verifyPresentation(request, presentation, mode, sources);
       code = outcome.result === "accepted" ? "OK" : (outcome.steps.find((s) => !s.ok)?.code ?? "REJECTED");
     } catch {
-      code = "BBS_INVALID"; // the wallet side could not even build a presentation from it
+      code = "MERKLE_PROOF_INVALID"; // no presentation can be built: the forgery is not in any batch we know
     }
     if (code === "OK") accepted++;
     else byCode[code] = (byCode[code] ?? 0) + 1;

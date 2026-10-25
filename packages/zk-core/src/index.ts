@@ -36,7 +36,7 @@ export {
   verifyDisclosure,
 } from "./bbs";
 
-export { walletCrypto } from "./wallet-crypto";
+export { walletCrypto, BACKUP_KDF_ITERATIONS } from "./wallet-crypto";
 
 export { dobCommitment, proveAgeGte, verifyAgeGte, dateToDays, ageCutoffDays, randomDobSalt } from "./age";
 
