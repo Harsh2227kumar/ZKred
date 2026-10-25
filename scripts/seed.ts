@@ -241,7 +241,13 @@ async function main() {
 
     // Check existing issued credentials for this wallet
     const checkRes = await apiFetch<{ items: Array<{ credential_type: string; wallet_id: string }> }>(
-      `/issuers/${issuer.id}/credentials`
+      `/issuers/${issuer.id}/credentials`,
+      {
+        headers: {
+          "Authorization": `Bearer ${config.adminToken}`,
+          "X-Issuer-Admin-Token": config.adminToken,
+        },
+      }
     );
     const existing = checkRes.ok && checkRes.data ? checkRes.data.items : [];
     const alreadyIssued = existing.some(
