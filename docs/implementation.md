@@ -1,98 +1,125 @@
-# ZKred — Technical Implementation Specification (SPARSH)
+# Technical Implementation Specification: Task V0-S1 (Frontend Scaffold)
 
-**Target:** `frontend/`, `infra/`, `docker-compose.yml`, `scripts/`  
+**Target:** `frontend/`  
 **Owner:** **SPARSH**  
-**Status:** **PROPOSED — REQUIRES USER APPROVAL BEFORE TASK EXECUTION**
+**Task ID:** **`V0-S1`** ⭐  
+**Status:** **PROPOSED SPECIFICATION — AWAITING USER APPROVAL**
 
 ---
 
-## 1. Task `V0-S0`: Project Kickoff, Scope Freeze & Environment Templates
+## 1. Architecture & Directory Hierarchy
 
-### Deliverables & Files:
-- [md/MVP-SCOPE.md](file:///d:/Hackathons/Cascade/md/MVP-SCOPE.md): Update line 6 status to `FROZEN at 18:30 (Cascade 26 Gate 0)`.
-- Root `.env.example`: Complete environment template with typed defaults for compose and backend.
-- `contracts/.env.example`: Template for Hardhat deployer.
-- `scripts/.env.example`: Template for seed pipeline.
-- `md/progress/SPARSH-PROGRESS.md`: Update task board and append `V0-S0 | DONE`.
-
-### Verification Steps:
-1. Run `bash scripts/check-hardcoded.sh` to ensure zero secrets or forbidden URLs are present in source.
-2. Present `git status` and `git diff` to the user for review.
-3. Wait for explicit user confirmation before creating PR to `dev`.
-
----
-
-## 2. Task `V0-S1`: Frontend Architecture & Navigation Shell
-
-### Directory Architecture:
 ```text
 frontend/
 ├── index.html
 ├── package.json
-├── vite.config.ts
-├── tsconfig.app.json
-├── src/
-│   ├── main.tsx                    # React root entry
-│   ├── App.tsx                     # QueryClientProvider + BrowserRouter
-│   ├── config.ts                   # ⚓ THE ONLY FILE reading import.meta.env
-│   ├── index.css                   # Tailwind v4 theme tokens & dark palette
-│   │
-│   ├── api/
-│   │   ├── client.ts               # openapi-fetch client with toUserMessage error mapper
-│   │   ├── types.ts                # Mirrored from CONTRACTS.md
-│   │   └── queries/
-│   │       └── meta.ts             # useHealth, useChainInfo, useEnums, useCredentialSchemas
-│   │
-│   ├── components/
-│   │   ├── layout/
-│   │   │   ├── Navbar.tsx          # 4 top-level sections + live health pulse dot
-│   │   │   └── Layout.tsx          # Global header, main, and footer
-│   │   └── common/
-│   │       ├── Loading.tsx         # Spinner / skeleton
-│   │       ├── EmptyState.tsx      # Clean empty data graphics with CTA
-│   │       ├── ErrorState.tsx      # Error card with retry trigger
-│   │       ├── TxLink.tsx          # Dynamic BaseScan explorer link using /meta/chain template
-│   │       └── Hex.tsx             # Truncated hex viewer with one-click copy badge
-│   │
-│   └── features/
-│       ├── home/pages/HomePage.tsx
-│       ├── issuer/pages/
-│       │   ├── IssuerListPage.tsx
-│       │   └── IssuerDetailPage.tsx
-│       ├── wallet/pages/
-│       │   ├── WalletPage.tsx
-│       │   └── WalletRespondPage.tsx
-│       ├── verifier/pages/
-│       │   ├── VerifierPage.tsx
-│       │   └── RequestDetailPage.tsx
-│       └── attack/pages/
-│           └── AttackConsolePage.tsx
+├── vite.config.ts                  # Vite + @tailwindcss/vite + @ alias
+├── tsconfig.app.json               # TypeScript config with paths: { "@/*": ["./src/*"] }
+├── .env.example                    # VITE_API_BASE_URL and VITE_ZK_ARTIFACTS_BASE_URL
+├── .env                            # Local dev environment
+│
+└── src/
+    ├── main.tsx                    # ReactDOM root mounting App in StrictMode
+    ├── App.tsx                     # Top-level Router & QueryClientProvider
+    ├── config.ts                   # ⚓ THE ONLY FILE reading import.meta.env
+    ├── index.css                   # Tailwind v4 theme tokens & modern dark palette
+    │
+    ├── api/
+    │   ├── client.ts               # openapi-fetch client with toUserMessage error mapper
+    │   ├── types.ts                # TypeScript interfaces mirroring CONTRACTS.md
+    │   └── queries/
+    │       └── meta.ts             # useHealth (15s poll), useChainInfo, useEnums, useCredentialSchemas
+    │
+    ├── components/
+    │   ├── layout/
+    │   │   ├── Navbar.tsx          # 4 top-level sections + live health pulse dot
+    │   │   └── Layout.tsx          # Sticky header, outlet container, responsive footer
+    │   └── common/
+    │       ├── Loading.tsx         # Spinner / skeleton animation
+    │       ├── EmptyState.tsx      # Clean empty state graphics with call-to-action
+    │       ├── ErrorState.tsx      # Error card with retry trigger using toUserMessage
+    │       ├── TxLink.tsx          # Dynamic BaseScan explorer link using /meta/chain template
+    │       └── Hex.tsx             # Truncated hex viewer with one-click copy badge
+    │
+    └── features/
+        ├── home/pages/HomePage.tsx
+        ├── issuer/pages/
+        │   ├── IssuerListPage.tsx      # Issuer list + admin authentication modal
+        │   └── IssuerDetailPage.tsx    # Tabs: Keys, Issue, Issued, Batches
+        ├── wallet/pages/
+        │   ├── WalletPage.tsx          # Wallet setup, inbox, credential list
+        │   └── WalletRespondPage.tsx   # 3-tier consent transparency (revealed / proven / private)
+        ├── verifier/pages/
+        │   ├── VerifierPage.tsx        # Natural language request prompt + requests feed
+        │   └── RequestDetailPage.tsx   # 4-node evaluation chain visualizer
+        └── attack/pages/
+            └── AttackConsolePage.tsx   # Red-team attack stepper + comparative live metrics
 ```
 
-### Core Technical Guardrails:
-1. **Config Anchor (`frontend/src/config.ts`):** Fails fast if `VITE_API_BASE_URL` or `VITE_ZK_ARTIFACTS_BASE_URL` is missing. Zero other files read `import.meta.env`.
-2. **Error Translation (`frontend/src/api/client.ts`):** Implements `toUserMessage()` strictly covering all 15 error codes defined in `CONTRACTS.md §2`.
-3. **Zero Hardcoded Data:** Dropdowns use `useEnums()`, forms use `useCredentialSchemas()`, explorer links use `useChainInfo()`.
-4. **Privacy:** Holder PII is stored strictly in `idb-keyval` client-side.
+---
+
+## 2. Technical Standards & Code Specifications
+
+### A. Strict Configuration Singleton (`src/config.ts`)
+```typescript
+// frontend/src/config.ts
+// ⚓ Anchor: The ONLY file in the frontend allowed to read import.meta.env (AGENTS.md §2).
+
+export interface FrontendConfig {
+  apiBaseUrl: string;
+  zkArtifactsBaseUrl: string;
+}
+
+function loadConfig(): FrontendConfig {
+  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+  const zkArtifactsBaseUrl = import.meta.env.VITE_ZK_ARTIFACTS_BASE_URL;
+
+  const missing: string[] = [];
+  if (!apiBaseUrl) missing.push('VITE_API_BASE_URL');
+  if (!zkArtifactsBaseUrl) missing.push('VITE_ZK_ARTIFACTS_BASE_URL');
+
+  if (missing.length > 0) {
+    throw new Error(
+      `[ZKred Frontend] Missing required environment variable(s): ${missing.join(', ')}. ` +
+      `Check your frontend/.env file.`
+    );
+  }
+
+  return { apiBaseUrl, zkArtifactsBaseUrl };
+}
+
+export const config = loadConfig();
+```
+
+### B. Standardized API Error Mapper (`src/api/client.ts`)
+Translates every HTTP error code from `CONTRACTS.md §2` into intuitive user messages:
+- `NONCE_USED`: Presentation request already verified and cannot be replayed.
+- `REQUEST_EXPIRED`: The presentation request has expired.
+- `AI_UNAVAILABLE`: Bedrock Claude unavailable; fall back to manual policy builder.
+- `AI_BAD_OUTPUT`: AI generated malformed policy format.
+- `POLICY_AMBIGUOUS`: Verifier requirements ambiguous; prompts user for clarification.
+- `CHAIN_UNAVAILABLE`: Base Sepolia RPC unreachable; fails closed.
+- `CHAIN_TX_FAILED`: On-chain transaction reverted.
+- `NOT_IMPLEMENTED`: Scheduled for upcoming milestone.
+
+### C. Live Health Indicator & Meta Hooks (`src/api/queries/meta.ts`)
+- **`useHealth()`:** Polled every 15,000 ms via TanStack Query.
+  - Green pulse: All systems operational (`db: ok`, `chain: ok`, `ai: ok`).
+  - Yellow pulse: Degraded subsystem.
+  - Red pulse: Backend unreachable.
+- **`useChainInfo()`:** Caches explorer URL template, chain ID, and breach window.
+- **`useEnums()`:** Provides dropdown options without hardcoded client arrays.
+- **`useCredentialSchemas()`:** Dynamically dictates form fields for credential issuance.
+
+### D. Zero Hardcoded Data Rules Enforced
+1. **No Mock Arrays:** Zero `const MOCK_DATA = [...]` in components.
+2. **Dynamic Explorer URLs:** `<TxLink/>` builds URLs using `chainInfo.explorer_tx_url_template.replace('{tx}', hash)`.
+3. **Fail-Closed States:** Unfinished endpoints return `501 Not Implemented`, rendering `<ErrorState/>` with helpful explanation.
 
 ---
 
-## 3. Task `V0-S2`: Container Infrastructure (Docker Compose & Caddy)
+## 3. Verification Protocol
 
-### Multi-Service Compose Architecture (`docker-compose.yml`):
-1. **`db`:** Postgres 16 Alpine with automatic healthcheck (`pg_isready`) and volume persistence.
-2. **`backend`:** Built from `infra/docker/backend.Dockerfile`, starts after `db` is healthy.
-3. **`caddy`:** Built from `infra/caddy/Caddyfile`:
-   - Reverse proxies `/api/v1/*` to `backend:8080`.
-   - Serves static SPA frontend files from `/var/www/html`.
-   - Serves static ZK circuit artifacts (`.wasm` / `.zkey`) from `/var/www/zk`.
-   - Configures automatic HTTPS via Let's Encrypt using `{$DOMAIN}` and `{$ACME_EMAIL}`.
-
----
-
-## 4. Verification & Testing Protocol
-
-Before requesting user PR approval for any task:
-1. Strict TypeScript check: `pnpm --filter frontend build` must complete with zero errors.
-2. Zero hardcoded data: `bash scripts/check-hardcoded.sh` must return `check-hardcoded: OK`.
-3. Working tree check: Verify that only files belonging to the current task and owner folders are modified.
+1. `pnpm --filter frontend build` must exit with `code 0`.
+2. `bash scripts/check-hardcoded.sh` must return `check-hardcoded: OK`.
+3. `git diff --stat` must show zero files modified outside `frontend/` and `md/progress/SPARSH-PROGRESS.md`.
