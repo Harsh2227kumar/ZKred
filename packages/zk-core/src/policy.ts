@@ -34,8 +34,12 @@ export const RequirementSchema = z
     const fields = CREDENTIAL_LAYOUTS[r.credential_type].fields;
     const byName = new Map(fields.map((f) => [f.name, f]));
     r.reveal.forEach((name, i) => {
-      if (!byName.has(name)) {
+      const f = byName.get(name);
+      if (!f) {
         ctx.addIssue({ code: "custom", path: ["reveal", i], message: `${name} is not a ${r.credential_type} field` });
+      } else if (f.source === "derived" && f.pii) {
+        // A derived secret (dob_salt) is never revealable: with its public commitment it gives away the hidden claim.
+        ctx.addIssue({ code: "custom", path: ["reveal", i], message: `${name} is a secret and can never be revealed` });
       }
     });
     // equals is checked on revealed values: the field must be revealed explicitly or be mandatory meta (0–6).
