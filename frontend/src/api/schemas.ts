@@ -15,29 +15,62 @@ export type CredentialSchemasResponse = Schemas['CredentialSchemaList'];
 export type CredentialSchema = Schemas['CredentialSchema'];
 export type CredentialSchemaField = Schemas['CredentialSchemaField'];
 
-// Issuer endpoints are not in the backend OpenAPI spec until V1-H1. These mirror md/CONTRACTS.md §3.2;
-// replace them with Schemas[...] aliases once gen:api picks the issuer schemas up.
-export interface IssuerKey {
+export type Issuer = Schemas['Issuer'];
+export type IssuerKey = Schemas['IssuerKey'];
+export type IssuerCreate = Schemas['IssuerCreate'];
+export type IssuerKind = Schemas['IssuerKind'];
+export type IssuersListResponse = Schemas['IssuerList'];
+
+// Contracts mirror md/CONTRACTS.md §3.2 & §3.6
+export interface Batch {
+  batch_id: string;
+  issuer_id: string;
   key_id: string;
-  public_key: string;
-  status: 'active' | 'rotated' | 'compromised';
-  active_from: string;
-  compromised_from: string | null;
-  tx_hash: string;
+  size: number;
+  status: 'open' | 'anchored';
+  root: string | null;
+  anchored_at: string | null;
+  tx_hash: string | null;
 }
 
-export interface Issuer {
+export interface BatchesListResponse {
+  items: Batch[];
+}
+
+export interface IssuedCredential {
   id: string;
-  did: string;
-  name: string;
-  kind: string;
-  issuer_chain_id: string;
-  governance_address: string;
-  accredited: boolean;
-  keys: IssuerKey[];
-  created_at: string;
+  credential_type: string;
+  wallet_id: string;
+  batch_id: string;
+  status_index: number;
+  commitment: string;
+  key_id: string;
+  issued_at: string;
+  revoked_at: string | null;
 }
 
-export interface IssuersListResponse {
-  items: Issuer[];
+export interface IssuedCredentialsListResponse {
+  items: IssuedCredential[];
+  next_cursor?: string | null;
+}
+
+export interface IssueCredentialIn {
+  credential_type: string;
+  wallet_id: string;
+  claims: Record<string, string | number>;
+}
+
+export interface IssueCredentialOut {
+  credential_id: string;
+  offer_id: string;
+  batch_id: string;
+  status_list_id: string;
+  status_index: number;
+  commitment: string;
+}
+
+export interface WalletLookupResponse {
+  id: string;
+  display_name: string;
+  enc_public_key: string;
 }

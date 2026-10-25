@@ -1,28 +1,40 @@
+// frontend/src/features/issuer/pages/IssuerDetailPage.tsx
 import React, { useState } from 'react';
 import { useParams, NavLink } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Key, PlusCircle, FileText, Layers, GraduationCap } from 'lucide-react';
-import { ChainName } from '@/components/common/ChainName';
-import { pendingEndpoint } from '@/api/client';
+import {
+  ArrowLeft,
+  Key,
+  PlusCircle,
+  FileText,
+  Layers,
+  GraduationCap,
+  ShieldCheck,
+} from 'lucide-react';
+import { useIssuer } from '@/api/queries/issuers';
 import { Loading } from '@/components/common/Loading';
 import { ErrorState } from '@/components/common/ErrorState';
 import { EmptyState } from '@/components/common/EmptyState';
 import { Hex } from '@/components/common/Hex';
-import { TxLink } from '@/components/common/TxLink';
-import type { Issuer } from '@/api/schemas';
+import { KeysTab } from '../components/KeysTab';
+import { IssueForm } from '../components/IssueForm';
+import { IssuedTab } from '../components/IssuedTab';
+import { BatchesTab } from '../components/BatchesTab';
+import { AdminTokenPrompt } from '../components/AdminTokenPrompt';
+import { hasAdminToken } from '@/lib/storage/session-token';
 
 export const IssuerDetailPage: React.FC = () => {
   const { issuerId } = useParams<{ issuerId: string }>();
   const [activeTab, setActiveTab] = useState<'keys' | 'issue' | 'issued' | 'batches'>('keys');
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => hasAdminToken());
 
-  const { data: issuer, isLoading, error, refetch } = useQuery<Issuer>({
-    queryKey: ['issuer', issuerId],
-    queryFn: () => pendingEndpoint<Issuer>('V1-H1'),
-    enabled: Boolean(issuerId),
-    retry: false,
-  });
+  const { data: issuer, isLoading, error, refetch } = useIssuer(issuerId);
 
-  if (isLoading) return <Loading label="Loading institution details..." />;
+  const handleAuthSaved = () => {
+    setIsAuthenticated(hasAdminToken());
+  };
+
+  if (isLoading) return <Loading label="Loading institution details from Base Sepolia..." />;
   if (error) return <ErrorState error={error} onRetry={() => refetch()} />;
   if (!issuer) return <EmptyState title="Institution not found" description="The requested institution record was not found." />;
 
@@ -30,23 +42,61 @@ export const IssuerDetailPage: React.FC = () => {
     <div className="space-y-6 max-w-6xl mx-auto">
       {/* Back button + Header */}
       <div className="space-y-4 pb-6 border-b border-[#231a3d]">
-        <NavLink to="/issuer" className="inline-flex items-center gap-1.5 text-xs text-[#8ea5a8] hover:text-[#f0f7f7] transition-colors">
-          <ArrowLeft className="w-3.5 h-3.5" /> Back to Institutions
-        </NavLink>
+        <div className="flex items-center justify-between">
+          <NavLink
+            to="/issuer"
+            className="inline-flex items-center gap-1.5 text-xs text-[#8ea5a8] hover:text-[#f0f7f7] transition-colors"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" /> Back to Institutions
+          </NavLink>
+
+          <button
+            onClick={() => setShowAuthModal(true)}
+            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-medium transition-colors cursor-pointer ${
+              isAuthenticated
+                ? 'border-[#06838d]/40 bg-[#06838d]/15 text-[#79bab6]'
+                : 'border-[#231a3d] bg-[#130e24] text-[#8ea5a8] hover:bg-[#1a1430] hover:text-[#f0f7f7]'
+            }`}
+          >
+            <Key className="w-3 h-3" />
+            <span>{isAuthenticated ? 'Admin Active' : 'Enter Admin Token'}</span>
+          </button>
+        </div>
+
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-2xl bg-[#06838d]/15 text-[#79bab6] flex items-center justify-center">
+              <div className="w-10 h-10 rounded-2xl bg-[#06838d]/15 text-[#79bab6] flex items-center justify-center">
                 <GraduationCap className="w-5 h-5" />
               </div>
-              <h1 className="text-2xl font-semibold tracking-tight text-[#f0f7f7]">{issuer.name}</h1>
-              <span className="text-xs uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[#130e24] text-[#79bab6] border border-[#06838d]/30 font-medium">
-                {issuer.kind}
-              </span>
+              <div>
+                <h1 className="text-2xl font-semibold tracking-tight text-[#f0f7f7]">{issuer.name}</h1>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-[11px] uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[#130e24] text-[#79bab6] border border-[#06838d]/30 font-medium">
+                    {issuer.kind}
+                  </span>
+                  {issuer.accredited ? (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#79bab6] bg-[#06838d]/15 px-2.5 py-0.5 rounded-full border border-[#06838d]/30">
+                      <ShieldCheck className="w-3 h-3" /> Accredited on-chain
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#ff9f0a] bg-[#ff9f0a]/10 px-2.5 py-0.5 rounded-full border border-[#ff9f0a]/20">
+                      Pending Accreditation
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
-            <div className="flex items-center gap-2 mt-2 text-xs text-[#8ea5a8]">
-              <span>DID:</span>
-              <Hex value={issuer.did} prefixLen={12} suffixLen={8} />
+
+            <div className="flex flex-wrap items-center gap-4 mt-3 text-xs text-[#8ea5a8]">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[#8ea5a8]/70">DID:</span>
+                <Hex value={issuer.did} prefixLen={10} suffixLen={6} />
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[#8ea5a8]/70">Governance Address:</span>
+                <Hex value={issuer.governance_address} prefixLen={6} suffixLen={4} />
+              </div>
             </div>
           </div>
         </div>
@@ -81,79 +131,40 @@ export const IssuerDetailPage: React.FC = () => {
 
       {/* Tab Panels */}
       {activeTab === 'keys' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-semibold text-[#8ea5a8] uppercase tracking-wider">Signing Key Epochs</h3>
-          </div>
-          <div className="rounded-3xl border border-[#231a3d] bg-[#130e24] overflow-hidden">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-black/40 text-xs uppercase tracking-wider text-[#8ea5a8] border-b border-[#231a3d]">
-                <tr>
-                  <th className="p-4">Key ID</th>
-                  <th className="p-4">Status</th>
-                  <th className="p-4">Active From</th>
-                  <th className="p-4">On-Chain Tx</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#231a3d]">
-                {issuer.keys?.map((k) => (
-                  <tr key={k.key_id} className="hover:bg-[#1a1430] transition-colors">
-                    <td className="p-4 font-mono text-xs">
-                      <Hex value={k.key_id} />
-                    </td>
-                    <td className="p-4">
-                      <span
-                        className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${
-                          k.status === 'active'
-                            ? 'bg-[#06838d]/15 text-[#79bab6] border border-[#06838d]/30'
-                            : k.status === 'compromised'
-                            ? 'bg-[#ff453a]/10 text-[#ff453a] border border-[#ff453a]/20'
-                            : 'bg-[#231a3d] text-[#8ea5a8]'
-                        }`}
-                      >
-                        {k.status}
-                      </span>
-                    </td>
-                    <td className="p-4 text-xs text-[#8ea5a8]">
-                      {new Date(k.active_from).toLocaleDateString()}
-                    </td>
-                    <td className="p-4 text-xs font-mono">
-                      {k.tx_hash ? <TxLink hash={k.tx_hash} /> : <span className="text-[#8ea5a8]">—</span>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <KeysTab
+          issuer={issuer}
+          onPromptAuth={() => setShowAuthModal(true)}
+        />
       )}
 
       {activeTab === 'issue' && (
-        <div className="p-8 rounded-3xl border border-dashed border-[#231a3d] bg-[#130e24] text-center space-y-3">
-          <h4 className="font-semibold text-[#f0f7f7]">Dynamic Credential Issuance</h4>
-          <p className="text-xs text-[#8ea5a8] max-w-md mx-auto leading-relaxed">
-            Loads credential schemas dynamically from <code className="text-xs bg-[#090614] px-2 py-0.5 rounded border border-[#231a3d] text-[#f0f7f7]">/meta/credential-schemas</code> and resolves student wallet via lookup.
-          </p>
-        </div>
+        <IssueForm
+          issuerId={issuer.id}
+          onPromptAuth={() => setShowAuthModal(true)}
+          onIssuedSuccess={() => setActiveTab('batches')}
+        />
       )}
 
       {activeTab === 'issued' && (
-        <div className="p-8 rounded-3xl border border-dashed border-[#231a3d] bg-[#130e24] text-center space-y-3">
-          <h4 className="font-semibold text-[#f0f7f7]">Issued Academic Credentials</h4>
-          <p className="text-xs text-[#8ea5a8] max-w-md mx-auto leading-relaxed">
-            Historical list of issued diplomas, student cards, and certificates with real-time status indices.
-          </p>
-        </div>
+        <IssuedTab
+          issuerId={issuer.id}
+          onPromptAuth={() => setShowAuthModal(true)}
+        />
       )}
 
       {activeTab === 'batches' && (
-        <div className="p-8 rounded-3xl border border-dashed border-[#231a3d] bg-[#130e24] text-center space-y-3">
-          <h4 className="font-semibold text-[#f0f7f7]">Merkle Batches & On-Chain Anchors</h4>
-          <p className="text-xs text-[#8ea5a8] max-w-md mx-auto leading-relaxed">
-            Shows batch Merkle roots, leaf counts, and <ChainName /> anchor transactions.
-          </p>
-        </div>
+        <BatchesTab
+          issuerId={issuer.id}
+          onPromptAuth={() => setShowAuthModal(true)}
+        />
       )}
+
+      {/* Admin Token Modal */}
+      <AdminTokenPrompt
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onSaved={handleAuthSaved}
+      />
     </div>
   );
 };

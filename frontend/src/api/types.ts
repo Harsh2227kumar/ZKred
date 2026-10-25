@@ -180,6 +180,175 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/issuers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description All issuers */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["IssuerList"];
+                    };
+                };
+                /** @description Standard error (CONTRACTS §2) */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description New issuer */
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["IssuerCreate"];
+                };
+            };
+            responses: {
+                /** @description Issuer registered on-chain */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Issuer"];
+                    };
+                };
+                /** @description Standard error (CONTRACTS §2) */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/issuers/{issuer_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    issuer_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description One issuer */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Issuer"];
+                    };
+                };
+                /** @description Standard error (CONTRACTS §2) */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/issuers/{issuer_id}/keys/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    issuer_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The new active key */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["IssuerKey"];
+                    };
+                };
+                /** @description Standard error (CONTRACTS §2) */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -246,6 +415,48 @@ export interface components {
             index: number;
             /** @enum {string} */
             source: "meta" | "claim" | "derived";
+        };
+        Issuer: {
+            /** Format: uuid */
+            id: string;
+            did: string;
+            name: string;
+            kind: components["schemas"]["IssuerKind"];
+            /** @description keccak256(did) */
+            issuer_chain_id: string;
+            governance_address: components["schemas"]["Address"];
+            /** @description Read from IssuerRegistry */
+            accredited: boolean;
+            keys: components["schemas"]["IssuerKey"][];
+            created_at: components["schemas"]["DateTime"];
+        };
+        /** @enum {string} */
+        IssuerKind: "university" | "medical_council" | "government";
+        IssuerKey: {
+            key_id: components["schemas"]["Hex32"];
+            /** @description BBS BLS12-381 G2 public key */
+            public_key: string;
+            status: components["schemas"]["KeyStatus"];
+            active_from: components["schemas"]["DateTime"];
+            compromised_from: components["schemas"]["DateTime"] & (string | null);
+            tx_hash: string;
+        };
+        /** @description 0x-prefixed 32-byte hex */
+        Hex32: string;
+        /** @enum {string} */
+        KeyStatus: "active" | "rotated" | "compromised";
+        /**
+         * Format: date-time
+         * @description ISO-8601 UTC timestamp
+         */
+        DateTime: string;
+        IssuerCreate: {
+            name: string;
+            kind: components["schemas"]["IssuerKind"];
+            did_suffix: string;
+        };
+        IssuerList: {
+            items: components["schemas"]["Issuer"][];
         };
     };
     responses: never;
