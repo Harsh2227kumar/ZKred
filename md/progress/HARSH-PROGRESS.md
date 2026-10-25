@@ -3,8 +3,8 @@
 **Role:** Lead · backend API + DB · crypto core (zk-core) · smart contracts · ZK circuit · Bedrock AI · contract owner · merges PRs
 **Owns:** `backend/`, `packages/zk-core/`, `contracts/`, `circuits/`, `md/CONTRACTS.md`, root workspace files
 **AI tools:** Claude Code (Pro; budget it for crypto/engine work) + free tools for boilerplate
-**Current branch:** `harsh/V0-H3-contracts`
-**Current task:** `V0-H3`
+**Current branch:** `harsh/V0-H4-age-circuit`
+**Current task:** `V0-H4`
 
 > Only HARSH (and HARSH's AI agent) edits this file. Append; don't rewrite history.
 > Read the bottom of this file aloud at every sync.
@@ -18,7 +18,7 @@
 | V0-H1 | Freeze CONTRACTS.md | TODO | |
 | V0-H2 | Monorepo + backend scaffold + migration + meta endpoints | DONE | |
 | V0-H3 | Contracts + tests + Base Sepolia deploy | DONE (code + tests + deploy script); Base Sepolia deploy waits for a funded DEPLOYER_PRIVATE_KEY | |
-| V0-H4 | age_gte circuit + committed artifacts | TODO | |
+| V0-H4 | age_gte circuit + committed artifacts | DONE | |
 | V0-H5 | zk-core skeleton + BBS spike + walletCrypto | TODO (layouts.ts already done in V0-H2) | |
 
 ## Blocked on
@@ -51,6 +51,7 @@ Format: `HH:MM | TASK-ID | STARTED/DONE/BLOCKED/HANDOFF | what happened | files`
 - Pre-H0 | PLAN | DONE | Hackathon kit adapted to ZKred (md/*, AGENTS/CLAUDE/GEMINI, .github, check-hardcoded) | md/, root docs
 - 16:06 | V0-H2 | DONE | pnpm monorepo root; backend Express 5 + Zod 4 config (fail-fast) + standard errors + /health (db/chain/Bedrock, AI probe cached) + /meta/enums|chain|credential-schemas + /openapi.json; Drizzle schema (14 tables) + migration 0000 applied on Postgres 16; 7 backend + 5 zk-core tests green. New folders: backend/drizzle, packages/zk-core (layouts only). Contract: CredentialSchema.fields[].source added (additive) | files: package.json, pnpm-workspace.yaml, tsconfig.base.json, backend/**, packages/zk-core/**, md/CONTRACTS.md
 - 16:40 | V0-H3 | DONE | IssuerRegistry (accreditor + governance, key epochs, markCompromised cutoff only moves earlier, compromised key stays compromised on rotate), AnchorRegistry (governance-only, active key only, block time = issuance time), StatusRegistry (list bound to first issuer); 10 Hardhat tests incl. breach scenario; deploy script writes deployments/<network>.json + exports ABIs to backend/src/integrations/abi. Windows Application Control blocks Hardhat's native EDR binary on this laptop → all hardhat commands run via `bash contracts/scripts/in-docker.sh <script>`. pnpm-workspace: allowBuilds esbuild | files: contracts/**, backend/src/integrations/abi/*, pnpm-workspace.yaml, .gitignore
+- 17:06 | V0-H4 | DONE | circuits/age_gte.circom: Poseidon(dob_days,salt)==dob_commitment ∧ dob_days ≤ cutoff_days (16-bit range checks), 573 constraints; public signals [dob_commitment, cutoff_days] (exact calendar cutoff, contract changelog updated); build.sh = circom2 (WASM, no native binary) + local 2^10 ptau + Groth16 phase-2 → committed build/{age_gte.wasm, age_gte.zkey, vkey.json}; 6 snarkjs roundtrip/negative tests green. New workspace `circuits` (AGENTS §7 updated). Note: circom2 compile takes minutes on Windows | files: circuits/**, pnpm-workspace.yaml, md/CONTRACTS.md, md/FEATURES.md, AGENTS.md
 
 ## Notes for the pitch
 
