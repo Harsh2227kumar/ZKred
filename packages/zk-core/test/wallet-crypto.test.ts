@@ -54,6 +54,18 @@ describe("walletCrypto backups", () => {
   });
 });
 
+describe("walletCrypto.isValidPublicKey", () => {
+  it("accepts a generated wallet key and rejects anything that is not a raw P-256 point", async () => {
+    const { publicKeyB64 } = await walletCrypto.generateWalletKeyPair();
+    expect(await walletCrypto.isValidPublicKey(publicKeyB64)).toBe(true);
+    const offCurve = Buffer.from(publicKeyB64, "base64url");
+    offCurve[64] = offCurve[64]! ^ 1;
+    for (const bad of ["", "not base64!", Buffer.from(randomText("k")).toString("base64url"), offCurve.toString("base64url")]) {
+      expect(await walletCrypto.isValidPublicKey(bad)).toBe(false);
+    }
+  });
+});
+
 describe("later-task stubs", () => {
   it("throw NOT_IMPLEMENTED instead of silently succeeding", async () => {
     await expect(buildPresentation({} as never)).rejects.toMatchObject({ code: "NOT_IMPLEMENTED" });
