@@ -8,6 +8,7 @@ import {
   Lock,
   FileBadge,
   UserCheck,
+  AlertTriangle,
 } from 'lucide-react';
 import { Hex } from '@/components/common/Hex';
 import type { SignedCredential } from '@/lib/wallet-crypto';
@@ -35,7 +36,6 @@ export const CredentialCard: React.FC<CredentialCardProps> = ({ credential, issu
 
   // Issuer key status check
   const activeKey = issuer?.keys?.find((k) => k.key_id === credential.key_id);
-  const isKeyActive = activeKey?.status === 'active';
 
   const formatFieldLabel = (key: string) => {
     return key
@@ -136,12 +136,18 @@ export const CredentialCard: React.FC<CredentialCardProps> = ({ credential, issu
         <div className="flex items-center gap-2">
           <span>Key Epoch:</span>
           <Hex value={credential.key_id} prefixLen={6} suffixLen={4} />
-          {isKeyActive ? (
+          {activeKey?.status === 'active' ? (
             <span className="inline-flex items-center gap-1 text-[#79bab6]">
               <ShieldCheck className="w-3 h-3" /> Valid
             </span>
-          ) : (
+          ) : activeKey?.status === 'compromised' ? (
+            <span className="inline-flex items-center gap-1 text-[#fb7185]">
+              <AlertTriangle className="w-3 h-3" /> Compromised
+            </span>
+          ) : activeKey?.status === 'rotated' ? (
             <span className="text-[#ff9f0a]">Rotated</span>
+          ) : (
+            <span className="text-[#8ea5a8]">Unknown</span>
           )}
         </div>
 

@@ -65,12 +65,14 @@ export const WalletInbox: React.FC<WalletInboxProps> = ({
       const issuer = issuers.find((i) => i.id === offer.issuer_id || i.did === credential.issuer_did);
       const issuerKey = issuer?.keys?.find((k) => k.key_id === credential.key_id);
 
-      if (issuerKey?.public_key) {
-        // 4. Client-side BBS+ signature verification
-        const isValid = await verifyCredentialSignature(credential, issuerKey.public_key);
-        if (!isValid) {
-          throw new Error('Issuer cryptographic signature verification failed! Credential rejected.');
-        }
+      if (!issuerKey?.public_key) {
+        throw new Error('Issuer public key not found or not published on-chain. Cannot verify cryptographic signature.');
+      }
+
+      // 4. Client-side BBS+ signature verification
+      const isValid = await verifyCredentialSignature(credential, issuerKey.public_key);
+      if (!isValid) {
+        throw new Error('Issuer cryptographic signature verification failed! Credential rejected.');
       }
 
       // 5. Save verified credential to local storage
