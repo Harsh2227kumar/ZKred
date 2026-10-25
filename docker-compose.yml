@@ -1,0 +1,92 @@
+# ========================================================
+# ZKred — Complete System Orchestration (Compose v2)
+# Conforms to VERSION-PLAN.md V0-S2 & CONTRACTS.md §6
+# ========================================================
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: zkred-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-zkred}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-zkred}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - zkred-net
+
+  backend:
+    build:
+      context: .
+      dockerfile: infra/docker/backend.Dockerfile
+    container_name: zkred-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-zkred}
+      PORT: 8080
+      ZK_ARTIFACTS_DIR: /app/circuits/build
+    volumes:
+      - ./circuits/build:/app/circuits/build:ro
+    networks:
+      - zkred-net
+
+  frontend:
+    build:
+      context: .
+      dockerfile: infra/docker/frontend.Dockerfile
+    container_name: zkred-frontend
+    restart: unless-stopped
+    volumes:
+      - frontend_dist:/srv/frontend
+    networks:
+      - zkred-net
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: zkred-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - frontend_dist:/srv/frontend:ro
+      - ./circuits/build:/srv/zk:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - zkred-net
+
+volumes:
+  pgdata:
+    name: zkred_pgdata
+  frontend_dist:
+    name: zkred_frontend_dist
+  caddy_data:
+    name: zkred_caddy_data
+  caddy_config:
+    name: zkred_caddy_config
+
+networks:
+  zkred-net:
+    name: zkred_net
+    driver: bridge
