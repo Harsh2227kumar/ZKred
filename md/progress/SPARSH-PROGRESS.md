@@ -3,8 +3,8 @@
 **Role:** Frontend · DevOps (Docker, EC2, Caddy, Bedrock access) · seed pipeline · QA · docs · pitch
 **Owns:** `frontend/`, `infra/`, `docker-compose.yml`, `scripts/`, `seed/`, `docs/`, `.github/`, `README.md`, `*.env.example`
 **AI tools:** Antigravity / opencode (free models). Always paste the task ID + its numbered steps from `md/VERSION-PLAN.md`; never let the agent write crypto.
-**Current branch:** `sparsh/V1-S3-verifier-portal`
-**Current task:** `V1-S3` (Verifier portal)
+**Current branch:** `sparsh/V1-S4-seed-pipeline`
+**Current task:** `V1-S4` (Seed pipeline v1)
 
 > Only SPARSH (and SPARSH's AI agent) edits this file. Append; don't rewrite history.
 > Read the bottom of this file aloud at every sync.
@@ -25,6 +25,7 @@
 | V1-S1 | Issuer console (real API & Base Sepolia) | DONE | #26 |
 | V1-S2 | Student Wallet (setup, inbox, credentials, backup) | DONE | #27 |
 | V1-S3 | Verifier portal (verifier create, manual policy builder, polling) | DONE | #28 |
+| V1-S4 | Seed pipeline v1 (seed/*.json, scripts/seed.ts, idempotent demo state) | DONE | #30 |
 
 ## Blocked on
 
@@ -64,6 +65,7 @@ Format: `HH:MM | TASK-ID | STARTED/DONE/BLOCKED/HANDOFF | what happened | files`
 - 01:38 | V1-S1 | DONE | Implemented Issuer Console: admin token auth, list & register issuers, keys table with rotation, schema-driven issue form with recipient lookup, batches table with Base Sepolia anchoring; typecheck & build green; browser verified | frontend/src/api/, frontend/src/features/issuer/, frontend/src/lib/
 - 02:03 | V1-S2 | DONE | Implemented Student Wallet: browser ECDH P-256 keypair via zk-core, idb-keyval store, offers inbox with BBS signature verification, credentials list with selective PII toggle, encrypted backup sync via PBKDF2/AES-GCM; typecheck & build green; browser verified | frontend/src/features/wallet/, frontend/src/lib/, frontend/src/api/
 - 02:35 | V1-S3 | DONE | Implemented Verifier Portal: verifier identity registration, natural language policy compiler (with graceful fallback banner), Visual Policy Builder with selective disclosure and ZK age predicates, Request Detail inspection with 4-stage evaluation pipeline visualizer and 2s live polling; typecheck, build & check-hardcoded green | frontend/src/features/verifier/, frontend/src/api/
+- 03:26 | V1-S4 | DONE | Implemented idempotent seed pipeline: seed/issuers.json (AIIMS Nagpur MBBS, IIIT Nagpur B.Tech, MMC, UIDAI), seed/holders.json (Asha, Rohan), seed/credentials.json, seed/verifiers.json, scripts/config.ts, scripts/seed.ts; verified on Base Sepolia and double-run idempotency | seed/, scripts/
 
 ## Notes for the pitch
 
