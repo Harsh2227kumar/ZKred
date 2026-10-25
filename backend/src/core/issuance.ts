@@ -2,7 +2,17 @@
 // leaf), a slot in the issuer's open batch and its own status-list bit. Claims are signed, encrypted to the holder's
 // wallet key and then dropped: the DB keeps only the non-PII record.
 import { randomBytes } from "node:crypto";
-import { merkleRoot, signCredential, statusList, walletCrypto, type CredentialType, type Hex32 } from "@zkred/zk-core";
+import {
+  CREDENTIAL_LAYOUTS,
+  merkleRoot,
+  signCredential,
+  statusList,
+  verifyCredential,
+  walletCrypto,
+  type CredentialType,
+  type Hex32,
+  type SignedCredential,
+} from "@zkred/zk-core";
 import { config } from "../config";
 import * as repo from "../db/repositories/issuance.repo";
 import * as issuersRepo from "../db/repositories/issuers.repo";
@@ -14,6 +24,8 @@ import type {
   IssueCredentialIn,
   IssueCredentialOut,
   IssuedCredential,
+  ReissueIn,
+  RevokeOut,
   StatusListOut,
 } from "../schemas/issuance.schema";
 import { deriveFields, validateClaims } from "./claims";
@@ -42,7 +54,7 @@ function toBatch(b: repo.BatchRow): Batch {
 }
 
 /** A new, empty status list whose hash is pinned on-chain before any credential points at it. */
-async function createStatusList(issuer: issuersRepo.IssuerRow): Promise<repo.StatusListRow> {
+export async function createStatusList(issuer: issuersRepo.IssuerRow): Promise<repo.StatusListRow> {
   const listId = randomHex32();
   const bits = statusList.create(config.STATUS_LIST_SIZE);
   const hash = statusList.hash(bits);
@@ -62,74 +74,154 @@ async function createStatusList(issuer: issuersRepo.IssuerRow): Promise<repo.Sta
   });
 }
 
-export async function issueCredential(issuerId: string, input: IssueCredentialIn): Promise<IssueCredentialOut> {
-  const type: CredentialType = input.credential_type;
-  const claims = validateClaims(type, input.claims);
-  const walletKey = await walletsRepo.findWalletEncryptionKey(input.wallet_id);
+/**
+ * Signs `claims` (+ derived fields) with the issuer's active key into its open batch and a fresh status slot,
+ * encrypts the credential to the holder's wallet key and records it (no claims stored). Caller holds the issuer lock.
+ */
+async function signAndOffer(
+  issuerId: string,
+  type: CredentialType,
+  claims: Record<string, string>,
+  walletId: string,
+  reissuedFrom: string | null,
+): Promise<IssueCredentialOut> {
+  const walletKey = await walletsRepo.findWalletEncryptionKey(walletId);
   if (!walletKey) throw new AppError("VALIDATION_ERROR", "Unknown wallet", { wallet_id: "no wallet with this id" });
+  const issuer = await requireIssuer(issuerId);
+  const key = await issuersRepo.findActiveKeyWithSecret(issuerId);
+  if (!key) throw new AppError("CONFLICT", "Issuer has no active signing key");
 
+  const batch =
+    (await repo.findOpenBatch(issuerId, key.keyId, config.BATCH_MAX_SIZE)) ??
+    (await repo.insertBatch({ batchId: randomHex32(), issuerId, keyId: key.keyId }));
+  const list = (await repo.findStatusListWithRoom(issuerId)) ?? (await createStatusList(issuer));
+
+  const commitment = randomHex32();
+  const issuedAt = new Date();
+  const values: Record<string, string> = {
+    cred_type: type,
+    issuer_did: issuer.did,
+    key_id: key.keyId,
+    batch_id: batch.batchId,
+    status_list_id: list.listId,
+    status_index: String(list.nextIndex),
+    commitment,
+    issued_at: issuedAt.toISOString(),
+    holder_binding: "",
+    ...claims,
+    ...(await deriveFields(type, claims)),
+  };
+  const credential = await signCredential({
+    secretKey: openBbsSecretKey(key.keyId, key.secretKeyEnc),
+    publicKey: new Uint8Array(Buffer.from(key.publicKey, "base64url")),
+    type,
+    values,
+  });
+  const offer = await walletCrypto.encryptOffer(walletKey, credential);
+
+  const { credentialId, offerId } = await repo.recordIssuance(
+    {
+      issuerId,
+      walletId,
+      credentialType: type,
+      batchId: batch.batchId,
+      keyId: key.keyId,
+      statusListId: list.listId,
+      statusIndex: list.nextIndex,
+      commitment,
+      issuedAt,
+      reissuedFrom,
+    },
+    {
+      walletId,
+      issuerId,
+      credentialType: type,
+      ephemeralPublicKey: offer.ephemeral_public_key,
+      iv: offer.iv,
+      ciphertext: offer.ciphertext,
+    },
+  );
+  return {
+    credential_id: credentialId,
+    offer_id: offerId,
+    batch_id: batch.batchId as Hex32,
+    status_list_id: list.listId as Hex32,
+    status_index: list.nextIndex,
+    commitment,
+  };
+}
+
+export async function issueCredential(issuerId: string, input: IssueCredentialIn): Promise<IssueCredentialOut> {
+  const claims = validateClaims(input.credential_type, input.claims);
+  return withIssuerLock(issuerId, () => signAndOffer(issuerId, input.credential_type, claims, input.wallet_id, null));
+}
+
+/**
+ * Flips the credential's status bit and pins the new list hash on-chain. If an earlier attempt got the tx mined but
+ * crashed before the DB update, the chain already holds the new hash and only the DB is brought in line.
+ */
+export async function revokeCredential(issuerId: string, credentialId: string): Promise<RevokeOut> {
   return withIssuerLock(issuerId, async () => {
     const issuer = await requireIssuer(issuerId);
-    const key = await issuersRepo.findActiveKeyWithSecret(issuerId);
-    if (!key) throw new AppError("CONFLICT", "Issuer has no active signing key");
+    const cred = await repo.findIssuedCredential(credentialId);
+    if (!cred || cred.issuerId !== issuerId) throw new AppError("NOT_FOUND", "Credential not found");
+    if (cred.revokedAt) throw new AppError("CONFLICT", "Credential is already revoked");
+    const list = await repo.findStatusList(cred.statusListId);
+    if (!list) throw new Error(`status list ${cred.statusListId} missing for credential ${credentialId}`);
 
-    const batch =
-      (await repo.findOpenBatch(issuerId, key.keyId, config.BATCH_MAX_SIZE)) ??
-      (await repo.insertBatch({ batchId: randomHex32(), issuerId, keyId: key.keyId }));
-    const list = (await repo.findStatusListWithRoom(issuerId)) ?? (await createStatusList(issuer));
-
-    const commitment = randomHex32();
-    const issuedAt = new Date();
-    const values: Record<string, string> = {
-      cred_type: type,
-      issuer_did: issuer.did,
-      key_id: key.keyId,
-      batch_id: batch.batchId,
-      status_list_id: list.listId,
-      status_index: String(list.nextIndex),
-      commitment,
-      issued_at: issuedAt.toISOString(),
-      holder_binding: "",
-      ...claims,
-      ...(await deriveFields(type, claims)),
-    };
-    const credential = await signCredential({
-      secretKey: openBbsSecretKey(key.keyId, key.secretKeyEnc),
-      publicKey: new Uint8Array(Buffer.from(key.publicKey, "base64url")),
-      type,
-      values,
-    });
-    const offer = await walletCrypto.encryptOffer(walletKey, credential);
-
-    const { credentialId, offerId } = await repo.recordIssuance(
-      {
-        issuerId,
-        walletId: input.wallet_id,
-        credentialType: type,
-        batchId: batch.batchId,
-        keyId: key.keyId,
-        statusListId: list.listId,
-        statusIndex: list.nextIndex,
-        commitment,
-        issuedAt,
-      },
-      {
-        walletId: input.wallet_id,
-        issuerId,
-        credentialType: type,
-        ephemeralPublicKey: offer.ephemeral_public_key,
-        iv: offer.iv,
-        ciphertext: offer.ciphertext,
-      },
-    );
+    const bits = new Uint8Array(list.bitstring);
+    statusList.setBit(bits, cred.statusIndex, true);
+    const hash = statusList.hash(bits);
+    const onchain = await chain.getListHash(list.listId as Hex32);
+    let txHash = list.txHash ?? "";
+    if (onchain?.listHash.toLowerCase() !== hash.toLowerCase()) {
+      const tx = await chain.setListHash(
+        openGovernanceKey(issuer.did, issuer.governanceKeyEnc),
+        issuer.issuerChainId as Hex32,
+        list.listId as Hex32,
+        hash,
+      );
+      txHash = tx.txHash;
+    }
+    await repo.recordRevocation({ credentialId, listId: list.listId, bitstring: Buffer.from(bits), hash, txHash, at: new Date() });
     return {
       credential_id: credentialId,
-      offer_id: offerId,
-      batch_id: batch.batchId as Hex32,
       status_list_id: list.listId as Hex32,
-      status_index: list.nextIndex,
-      commitment,
+      status_index: cred.statusIndex,
+      list_hash: hash,
+      tx_hash: txHash,
     };
+  });
+}
+
+/**
+ * Re-issues a holder's credential under the issuer's current key (breach recovery). The old credential must carry a
+ * valid signature by one of this issuer's keys AND its commitment must be in the issuer's own records for this
+ * wallet, unrevoked and not yet re-issued: forgeries made with a stolen key are not in those records, so they can't
+ * be laundered into fresh credentials.
+ */
+export async function reissue(issuerId: string, input: ReissueIn): Promise<{ offer_id: string }> {
+  const old = input.old_credential as SignedCredential;
+  const refused = (why: string) => new AppError("FORBIDDEN", "This credential cannot be re-issued", { old_credential: why });
+  return withIssuerLock(issuerId, async () => {
+    const issuer = await requireIssuer(issuerId);
+    if (old.issuer_did !== issuer.did) throw refused("issued by another issuer");
+    const key = await issuersRepo.findKey(old.key_id);
+    if (!key || key.issuerId !== issuerId) throw refused("signed by an unknown key");
+    if (!(await verifyCredential(old, new Uint8Array(Buffer.from(key.publicKey, "base64url"))))) throw refused("invalid signature");
+
+    const record = await repo.findIssuedByCommitment(old.values.commitment ?? "");
+    if (!record || record.issuerId !== issuerId || record.keyId !== old.key_id) throw refused("not in the issuer's records");
+    if (record.walletId !== input.wallet_id) throw refused("issued to another wallet");
+    if (record.revokedAt) throw refused("revoked");
+    if (await repo.hasReissue(record.id)) throw new AppError("CONFLICT", "This credential was already re-issued");
+
+    const claims: Record<string, string> = {};
+    for (const f of CREDENTIAL_LAYOUTS[old.type].fields) {
+      if (f.source === "claim") claims[f.name] = old.values[f.name] ?? "";
+    }
+    const out = await signAndOffer(issuerId, old.type, validateClaims(old.type, claims), input.wallet_id, record.id);
+    return { offer_id: out.offer_id };
   });
 }
 

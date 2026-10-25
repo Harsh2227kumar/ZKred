@@ -23,20 +23,20 @@ export const openGovernanceKey = (did: string, sealed: string): string =>
 export const sealBbsSecretKey = (keyId: string, secretKey: Uint8Array): string => sealSecret("bbs_secret_key", keyId, secretKey);
 export const openBbsSecretKey = (keyId: string, sealed: string): Uint8Array => openSecret("bbs_secret_key", keyId, sealed);
 
-interface SigningKey {
+export interface SigningKey {
   keyId: Hex32;
   publicKey: Uint8Array;
   secretKey: Uint8Array;
   pubKeyHash: Hex32;
 }
 
-async function newSigningKey(): Promise<SigningKey> {
+export async function newSigningKey(): Promise<SigningKey> {
   const { keyId, publicKey, secretKey } = await generateIssuerKeyPair();
   return { keyId, publicKey, secretKey, pubKeyHash: pubKeyHash(publicKey) };
 }
 
 /** The DB row for a key whose on-chain registration was mined in `tx` (active_from = that block's time). */
-function keyRow(key: SigningKey, tx: chain.TxResult): repo.NewIssuerKeyRow {
+export function keyRow(key: SigningKey, tx: chain.TxResult): repo.NewIssuerKeyRow {
   return {
     keyId: key.keyId,
     publicKey: Buffer.from(key.publicKey).toString("base64url"),
@@ -47,7 +47,7 @@ function keyRow(key: SigningKey, tx: chain.TxResult): repo.NewIssuerKeyRow {
   };
 }
 
-function toIssuerKey(k: repo.IssuerKeyRecord): IssuerKey {
+export function toIssuerKey(k: repo.IssuerKeyRecord): IssuerKey {
   return {
     key_id: k.keyId as Hex32,
     public_key: k.publicKey,

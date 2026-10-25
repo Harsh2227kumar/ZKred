@@ -166,6 +166,15 @@ export function setListHash(governanceKey: string, issuerChainId: Hex32, listId:
   );
 }
 
+/** Declares `keyId` untrusted for batches anchored at or after `compromisedFrom` (must not be in the future). */
+export function markCompromised(governanceKey: string, issuerChainId: Hex32, keyId: Hex32, compromisedFrom: Date): Promise<TxResult> {
+  const signer = governanceSigner(governanceKey);
+  const cutoff = BigInt(Math.floor(compromisedFrom.getTime() / 1000));
+  return transact(signer, "IssuerRegistry.markCompromised", () =>
+    (issuerRegistry.connect(signer) as Contract).getFunction("markCompromised")(issuerChainId, keyId, cutoff),
+  );
+}
+
 // ---------------------------------------------------------------- reads
 
 export interface OnchainIssuer {
@@ -223,6 +232,17 @@ export interface OnchainListHash {
 export async function getListHash(listId: Hex32): Promise<OnchainListHash | null> {
   const r = await read("StatusRegistry.getListHash", () => statusRegistry.getFunction("getListHash")(listId), ["UnknownList"]);
   return r ? { issuerChainId: r[0], listHash: r[1], updatedAt: new Date(Number(r[2]) * 1000) } : null;
+}
+
+/** Timestamp of the latest block: the chain's clock, used for compromise cutoffs. */
+export async function latestBlockTime(): Promise<Date> {
+  try {
+    const block = await provider.getBlock("latest");
+    if (!block) throw new Error("no latest block");
+    return new Date(block.timestamp * 1000);
+  } catch {
+    throw new ChainError("CHAIN_UNAVAILABLE", "latest block: chain read failed");
+  }
 }
 
 // ---------------------------------------------------------------- health

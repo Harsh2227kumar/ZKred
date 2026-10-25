@@ -1,5 +1,5 @@
 // issuance_batches, status_lists, issued_credentials, credential_offers. No claims are ever stored here.
-import { and, desc, eq, lt, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, lt, or, sql } from "drizzle-orm";
 import { db } from "../client";
 import { credentialOffers, issuanceBatches, issuedCredentials, statusLists } from "../schema";
 
@@ -139,4 +139,61 @@ export async function listIssuedCredentials(
     .where(and(eq(issuedCredentials.issuerId, issuerId), page))
     .orderBy(desc(issuedCredentials.issuedAt), desc(issuedCredentials.id))
     .limit(limit);
+}
+
+export async function findIssuedCredential(id: string): Promise<IssuedCredentialRow | null> {
+  const [row] = await db.select().from(issuedCredentials).where(eq(issuedCredentials.id, id));
+  return row ?? null;
+}
+
+export async function findIssuedByCommitment(commitment: string): Promise<IssuedCredentialRow | null> {
+  const [row] = await db.select().from(issuedCredentials).where(eq(issuedCredentials.commitment, commitment));
+  return row ?? null;
+}
+
+/** True if some credential was re-issued from `credentialId`. */
+export async function hasReissue(credentialId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: issuedCredentials.id })
+    .from(issuedCredentials)
+    .where(eq(issuedCredentials.reissuedFrom, credentialId));
+  return Boolean(row);
+}
+
+/** Stores the new status bits (whose hash is now on-chain) and marks the credential revoked, atomically. */
+export async function recordRevocation(r: {
+  credentialId: string;
+  listId: string;
+  bitstring: Buffer;
+  hash: string;
+  txHash: string;
+  at: Date;
+}): Promise<void> {
+  await db.transaction(async (tx) => {
+    await tx
+      .update(statusLists)
+      .set({ bitstring: r.bitstring, onchainHash: r.hash, txHash: r.txHash, updatedAt: r.at })
+      .where(eq(statusLists.listId, r.listId));
+    const [revoked] = await tx
+      .update(issuedCredentials)
+      .set({ revokedAt: r.at })
+      .where(and(eq(issuedCredentials.id, r.credentialId), isNull(issuedCredentials.revokedAt)))
+      .returning({ id: issuedCredentials.id });
+    if (!revoked) throw new Error(`credential ${r.credentialId} was revoked concurrently`);
+  });
+}
+
+/** Every batch signed by `keyId`, oldest first. */
+export async function listBatchesByKey(keyId: string): Promise<BatchRow[]> {
+  return db.select().from(issuanceBatches).where(eq(issuanceBatches.keyId, keyId)).orderBy(asc(issuanceBatches.createdAt));
+}
+
+/** Appends commitments to a batch that is still open (attack console: a breached pipeline injecting leaves). */
+export async function appendLeaves(batchId: string, commitments: string[]): Promise<boolean> {
+  const [row] = await db
+    .update(issuanceBatches)
+    .set({ leaves: sql`${issuanceBatches.leaves} || ARRAY[${sql.join(commitments.map((c) => sql`${c}`), sql`, `)}]::text[]` })
+    .where(and(eq(issuanceBatches.batchId, batchId), eq(issuanceBatches.status, "open")))
+    .returning({ id: issuanceBatches.id });
+  return Boolean(row);
 }

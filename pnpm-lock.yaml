@@ -299,6 +299,9 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.104.5
         version: 5.104.5(@types/react@19.3.0)(react@19.3.1)
+      '@zkred/zk-core':
+        specifier: workspace:*
+        version: link:../packages/zk-core
       clsx:
         specifier: ^2.1.1
         version: 2.1.1

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { buildOpenApiDocument } from "../schemas/openapi";
+import { attackRouter } from "./attack.routes";
 import { healthRouter } from "./health.routes";
 import { issuanceRouter } from "./issuance.routes";
 import { issuersRouter } from "./issuers.routes";
@@ -20,3 +21,4 @@ apiRouter.use(issuersRouter);
 apiRouter.use(issuanceRouter);
 apiRouter.use(walletsRouter);
 apiRouter.use(verifiersRouter);
+apiRouter.use(attackRouter);

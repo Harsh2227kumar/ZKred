@@ -3,8 +3,8 @@
 **Role:** Lead · backend API + DB · crypto core (zk-core) · smart contracts · ZK circuit · Bedrock AI · contract owner · merges PRs
 **Owns:** `backend/`, `packages/zk-core/`, `contracts/`, `circuits/`, `md/CONTRACTS.md`, root workspace files
 **AI tools:** Claude Code (Pro; budget it for crypto/engine work) + free tools for boilerplate
-**Current branch:** `harsh/V1-H4-verifier-requests`
-**Current task:** `V1-H4` verifiers + requests (V1.0 HARSH tasks done)
+**Current branch:** `harsh/V1.1-H1-build-presentation`
+**Current task:** V1.1 + V1.2 HARSH tasks done; frontend wired (on the human's request)
 
 > Only HARSH (and HARSH's AI agent) edits this file. Append; don't rewrite history.
 > Read the bottom of this file aloud at every sync.
@@ -23,7 +23,13 @@
 | V1-H1 | integrations/chain.ts + issuers & keys endpoints | DONE | #19 |
 | V1-H2 | Issuance, batches, anchor, leaves, status lists | DONE | #20 |
 | V1-H3 | Wallet endpoints (create, lookup, offers, claim, backup) | DONE | #21 |
-| V1-H4 | Verifiers + presentation requests (parse/presentations 501) | DONE | |
+| V1-H4 | Verifiers + presentation requests (parse/presentations 501) | DONE | #22 |
+| V1.1-H1 | zk-core buildPresentation | DONE | |
+| V1.1-H2 | Verifier engine + presentations + single-use nonce | DONE | |
+| V1.1-H3 | Bedrock NL → policy + AI consent | DONE | |
+| V1.2-H1 | Revocation | DONE | |
+| V1.2-H2 | Compromise + reissue | DONE | |
+| V1.2-H3 | Attack endpoints | DONE | |
 
 ## Blocked on
 
@@ -76,3 +82,6 @@ Format: `HH:MM | TASK-ID | STARTED/DONE/BLOCKED/HANDOFF | what happened | files`
 - 17:05 | V1-H2 | DONE | zk-core merkle (hashed leaves, sorted pairs, second-preimage test) + statusList (fflate gzip) implemented TDD. POST/GET /issuers/{id}/credentials (claims validated per layout, GovernmentId dob_commitment derived server-side, BBS-signed, ECDH-encrypted offer, keyset cursor), GET batches, POST anchor (root = merkleRoot(leaves), chain-time anchored_at, re-syncs DB if the chain already has it, refuses retired-key batches), GET /batches/{id}/leaves, GET /status-lists/{id} (onchain_hash read from chain). Slot + leaf claimed in one DB tx guarded by next_index. 37 backend + 49 zk-core tests green. Dep: fflate (zk-core) | files: packages/zk-core/{src/{merkle,status-list,pending,index}.ts,test/*,package.json}, backend/src/{config.ts,api/issuance.routes.ts,core/{claims,issuance}.ts,db/repositories/{issuance,wallets}.repo.ts,integrations/chain.ts,schemas/*}, backend/test/integration/*, md/CONTRACTS.md
 - 17:25 | V1-H3 | DONE | POST /wallets (P-256 key validated via new zk-core walletCrypto.isValidPublicKey; token 32 random bytes, shown once, stored as SHA-256; 409 on taken name), GET /wallets/lookup, GET offers, POST claim (idempotent, 404 for another wallet's offer), PUT/GET backup (upsert). requireWalletOwner: 401 unknown token, 403 other wallet. TDD attack test: wallet A's token can't list/claim/back up wallet B. Migration 0002 unique wallets.token_hash. 44 backend + 50 zk-core tests green | files: backend/src/{api/{wallets.routes.ts,middleware/auth.ts,router.ts},core/{auth,wallets}.ts,db/{schema.ts,repositories/wallets.repo.ts},schemas/*}, backend/drizzle/0002_*, backend/test/integration/wallets.test.ts, packages/zk-core/{src/wallet-crypto.ts,test/wallet-crypto.test.ts}, md/CONTRACTS.md
 - 17:45 | V1-H4 | DONE | POST/GET /verifiers (server-generated did), POST /presentation-requests (policy validated by zk-core schema, nonce 32 B, TTL from config, wallet_url from PUBLIC_BASE_URL, deterministic consent template core/consent.ts), GET request (410 when expired), GET verifications (real, empty until V1.1), parse + presentations → 501. Real server smoke-tested with curl against Postgres + Hardhat. 54 backend tests green with DB + chain (28 without). SPARSH: run `pnpm --filter frontend gen:api` after #19–#22 merge; all V1.0 API paths are in /openapi.json | files: backend/src/{api/{verifiers.routes,router}.ts,core/{consent,verifiers}.ts,db/repositories/verifiers.repo.ts,schemas/{openapi,verifiers.schema}.ts}, backend/test/{policy-factory.ts,api/not-implemented.test.ts,core/consent.test.ts,integration/verifiers.test.ts}, md/CONTRACTS.md
+- 01:15 | V1.1-H1 | DONE | zk-core buildPresentation (per requirement: matching credential with valid signature + batch membership → nonce-bound BBS disclosure, Merkle path, Groth16 age proof); additive exports matchCredentials, revealFieldsFor, IssuerInfo, BACKUP_KDF_ITERATIONS. Cherry-picked the stray dob_salt fix (1426f1c). 55 zk-core tests green | files: packages/zk-core/src/{presentation,index,errors,wallet-crypto}.ts, packages/zk-core/test/presentation.test.ts
+- 01:15 | V1.1-H2/H3, V1.2-H1..H3 | DONE | core/verifier.ts 4-step engine (fails closed, memoised chain reads, naive mode); presentations endpoint (accepted consumes nonce); ai/policy.ts (forced tool call, Zod + 1 retry, POLICY_AMBIGUOUS questions) + prompts; AI consent with template fallback; revoke, compromise (+auto-rotate, batch verdicts), reissue (honest-records check), /attack/*. 77 backend tests green incl. integration on Postgres + Hardhat (breach scenario end to end). Contract tests 10/10 in Docker. New: contracts/scripts/in-docker.ps1 | files: backend/src/**, backend/test/**, md/CONTRACTS.md
+- 01:15 | WIRING | DONE | On the human's explicit request (SPARSH-owned folders): frontend wired to the real API — issuer console (create, keys, rotate, compromise report, issue, issued + revoke, batches + anchor), wallet (create/restore/unlock, inbox decrypt+verify+claim, encrypted backup, status + refresh), verifier (picker, AI parse + questions, manual builder, request page with QR + 4-node chain), respond page Share (proof built in browser), attack console. gen:api re-run. frontend.Dockerfile copies packages/zk-core; vite dev serves /zk. Clicked through G1 + G2 + breach recovery on a local Hardhat chain | files: frontend/**, infra/docker/frontend.Dockerfile

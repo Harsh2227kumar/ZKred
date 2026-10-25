@@ -15,29 +15,37 @@ export type CredentialSchemasResponse = Schemas['CredentialSchemaList'];
 export type CredentialSchema = Schemas['CredentialSchema'];
 export type CredentialSchemaField = Schemas['CredentialSchemaField'];
 
-// Issuer endpoints are not in the backend OpenAPI spec until V1-H1. These mirror md/CONTRACTS.md §3.2;
-// replace them with Schemas[...] aliases once gen:api picks the issuer schemas up.
-export interface IssuerKey {
-  key_id: string;
-  public_key: string;
-  status: 'active' | 'rotated' | 'compromised';
-  active_from: string;
-  compromised_from: string | null;
-  tx_hash: string;
-}
+export type Issuer = Schemas['Issuer'];
+export type IssuerKey = Schemas['IssuerKey'];
+export type IssuerCreate = Schemas['IssuerCreate'];
+export type IssuersListResponse = Schemas['IssuerList'];
+export type CompromiseReport = Schemas['CompromiseReport'];
 
-export interface Issuer {
-  id: string;
-  did: string;
-  name: string;
-  kind: string;
-  issuer_chain_id: string;
-  governance_address: string;
-  accredited: boolean;
-  keys: IssuerKey[];
-  created_at: string;
-}
+export type IssueCredentialIn = Schemas['IssueCredentialIn'];
+export type IssueCredentialOut = Schemas['IssueCredentialOut'];
+export type IssuedCredential = Schemas['IssuedCredential'];
+export type IssuedCredentialList = Schemas['IssuedCredentialList'];
+export type Batch = Schemas['Batch'];
+export type BatchLeaves = Schemas['BatchLeaves'];
+export type StatusListOut = Schemas['StatusListOut'];
+export type RevokeOut = Schemas['RevokeOut'];
 
-export interface IssuersListResponse {
-  items: Issuer[];
-}
+export type WalletCreated = Schemas['WalletCreated'];
+export type WalletPublic = Schemas['WalletPublic'];
+export type CredentialOffer = Schemas['CredentialOffer'];
+export type Backup = Schemas['Backup'];
+export type BackupIn = Schemas['BackupIn'];
+export type ReissueIn = Schemas['ReissueIn'];
+
+export type Verifier = Schemas['Verifier'];
+export type ParseOut = Schemas['ParseOut'];
+export type PresentationPolicy = Schemas['PresentationPolicy'];
+export type PresentationRequest = Schemas['PresentationRequest'];
+export type Presentation = Schemas['Presentation'];
+export type Verification = Schemas['Verification'];
+export type VerificationStepResult = Schemas['VerificationStepResult'];
+
+export type StolenKey = Schemas['StolenKey'];
+export type ForgeOut = Schemas['ForgeOut'];
+export type AttackRunOut = Schemas['AttackRunOut'];
+export type AttackState = Schemas['AttackState'];
