@@ -1,5 +1,4 @@
 // Public API of @zkred/zk-core (md/CONTRACTS.md §4.1). Everything not exported here is internal.
-// buildPresentation is a typed stub that throws NOT_IMPLEMENTED until V1.1.
 
 export type { Hex32, SignedCredential, ZkArtifacts } from "./types";
 export { ZkCoreError } from "./errors";
@@ -43,4 +42,4 @@ export { dobCommitment, proveAgeGte, verifyAgeGte, dateToDays, ageCutoffDays, ra
 
 export { merkleRoot, merkleProof, verifyMerkleProof } from "./merkle";
 export { statusList } from "./status-list";
-export { buildPresentation } from "./pending";
+export { buildPresentation, matchCredentials, revealFieldsFor, type IssuerInfo } from "./presentation";

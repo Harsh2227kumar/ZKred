@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ZkCoreError, buildPresentation, walletCrypto, type SignedCredential } from "../src";
+import { ZkCoreError, walletCrypto, type SignedCredential } from "../src";
 import { randomHex32, randomText } from "./factories";
 
 const credential = (): SignedCredential => ({
@@ -63,11 +63,5 @@ describe("walletCrypto.isValidPublicKey", () => {
     for (const bad of ["", "not base64!", Buffer.from(randomText("k")).toString("base64url"), offCurve.toString("base64url")]) {
       expect(await walletCrypto.isValidPublicKey(bad)).toBe(false);
     }
-  });
-});
-
-describe("later-task stubs", () => {
-  it("throw NOT_IMPLEMENTED instead of silently succeeding", async () => {
-    await expect(buildPresentation({} as never)).rejects.toMatchObject({ code: "NOT_IMPLEMENTED" });
   });
 });
