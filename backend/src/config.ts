@@ -53,6 +53,9 @@ const EnvSchema = z
     REQUEST_TTL_SECONDS: z.coerce.number().int().positive().default(900),
     STATUS_LIST_SIZE: z.coerce.number().int().min(1024).default(16384),
     BATCH_MAX_SIZE: z.coerce.number().int().positive().default(256),
+    CLAIM_MAX_CHARS: z.coerce.number().int().positive().default(256),
+    LIST_DEFAULT_LIMIT: z.coerce.number().int().positive().default(50),
+    LIST_MAX_LIMIT: z.coerce.number().int().positive().default(200),
     AGE_PROOF_MAX_SKEW_DAYS: z.coerce.number().int().min(0).default(1),
     ZK_ARTIFACTS_DIR: z.string().min(1),
 

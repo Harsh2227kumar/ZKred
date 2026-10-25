@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ZkCoreError, buildPresentation, merkleRoot, statusList, walletCrypto, type SignedCredential } from "../src";
+import { ZkCoreError, buildPresentation, walletCrypto, type SignedCredential } from "../src";
 import { randomHex32, randomText } from "./factories";
 
 const credential = (): SignedCredential => ({
@@ -54,10 +54,20 @@ describe("walletCrypto backups", () => {
   });
 });
 
+describe("walletCrypto.isValidPublicKey", () => {
+  it("accepts a generated wallet key and rejects anything that is not a raw P-256 point", async () => {
+    const { publicKeyB64 } = await walletCrypto.generateWalletKeyPair();
+    expect(await walletCrypto.isValidPublicKey(publicKeyB64)).toBe(true);
+    const offCurve = Buffer.from(publicKeyB64, "base64url");
+    offCurve[64] = offCurve[64]! ^ 1;
+    for (const bad of ["", "not base64!", Buffer.from(randomText("k")).toString("base64url"), offCurve.toString("base64url")]) {
+      expect(await walletCrypto.isValidPublicKey(bad)).toBe(false);
+    }
+  });
+});
+
 describe("later-task stubs", () => {
   it("throw NOT_IMPLEMENTED instead of silently succeeding", async () => {
-    expect(() => merkleRoot([])).toThrow(/not implemented yet \(V1\.1\)/);
-    expect(() => statusList.create(8)).toThrow(ZkCoreError);
     await expect(buildPresentation({} as never)).rejects.toMatchObject({ code: "NOT_IMPLEMENTED" });
   });
 });

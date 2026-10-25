@@ -14,7 +14,9 @@ import type { Hex32 } from "@zkred/zk-core";
 import { config } from "../config";
 import { AppError } from "../core/errors";
 import { withLock } from "../keyed-lock";
+import anchorRegistryAbi from "./abi/AnchorRegistry.json" with { type: "json" };
 import issuerRegistryAbi from "./abi/IssuerRegistry.json" with { type: "json" };
+import statusRegistryAbi from "./abi/StatusRegistry.json" with { type: "json" };
 
 // cacheTimeout -1: ethers otherwise reuses identical RPC answers for 250 ms, so a nonce or a just-written value could be stale.
 export const provider = new JsonRpcProvider(config.CHAIN_RPC_URL, config.CHAIN_ID, {
@@ -25,6 +27,8 @@ export const provider = new JsonRpcProvider(config.CHAIN_RPC_URL, config.CHAIN_I
 
 const accreditor = new Wallet(config.ACCREDITOR_PRIVATE_KEY, provider);
 const issuerRegistry = new Contract(config.ISSUER_REGISTRY_ADDRESS, issuerRegistryAbi, provider);
+const anchorRegistry = new Contract(config.ANCHOR_REGISTRY_ADDRESS, anchorRegistryAbi, provider);
+const statusRegistry = new Contract(config.STATUS_REGISTRY_ADDRESS, statusRegistryAbi, provider);
 
 const REGISTRIES = {
   ISSUER_REGISTRY_ADDRESS: config.ISSUER_REGISTRY_ADDRESS,
@@ -147,6 +151,21 @@ export function rotateKey(
   );
 }
 
+/** Anchors a batch root; the block time becomes the batch's trusted issuance time. Reverts unless `keyId` is active. */
+export function anchor(governanceKey: string, batchId: Hex32, issuerChainId: Hex32, keyId: Hex32, root: Hex32): Promise<TxResult> {
+  const signer = governanceSigner(governanceKey);
+  return transact(signer, "AnchorRegistry.anchor", () =>
+    (anchorRegistry.connect(signer) as Contract).getFunction("anchor")(batchId, issuerChainId, keyId, root),
+  );
+}
+
+export function setListHash(governanceKey: string, issuerChainId: Hex32, listId: Hex32, listHash: Hex32): Promise<TxResult> {
+  const signer = governanceSigner(governanceKey);
+  return transact(signer, "StatusRegistry.setListHash", () =>
+    (statusRegistry.connect(signer) as Contract).getFunction("setListHash")(issuerChainId, listId, listHash),
+  );
+}
+
 // ---------------------------------------------------------------- reads
 
 export interface OnchainIssuer {
@@ -181,6 +200,29 @@ export async function getKey(keyId: Hex32): Promise<OnchainKey | null> {
     status: ONCHAIN_KEY_STATUS[Number(r[3])] ?? "none",
     compromisedFrom: compromisedFrom > 0 ? new Date(compromisedFrom * 1000) : null,
   };
+}
+
+export interface OnchainAnchor {
+  root: Hex32;
+  issuerChainId: Hex32;
+  keyId: Hex32;
+  anchoredAt: Date;
+}
+
+export async function getAnchor(batchId: Hex32): Promise<OnchainAnchor | null> {
+  const r = await read("AnchorRegistry.getAnchor", () => anchorRegistry.getFunction("getAnchor")(batchId), ["UnknownBatch"]);
+  return r ? { root: r[0], issuerChainId: r[1], keyId: r[2], anchoredAt: new Date(Number(r[3]) * 1000) } : null;
+}
+
+export interface OnchainListHash {
+  issuerChainId: Hex32;
+  listHash: Hex32;
+  updatedAt: Date;
+}
+
+export async function getListHash(listId: Hex32): Promise<OnchainListHash | null> {
+  const r = await read("StatusRegistry.getListHash", () => statusRegistry.getFunction("getListHash")(listId), ["UnknownList"]);
+  return r ? { issuerChainId: r[0], listHash: r[1], updatedAt: new Date(Number(r[2]) * 1000) } : null;
 }
 
 // ---------------------------------------------------------------- health

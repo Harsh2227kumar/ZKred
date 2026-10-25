@@ -4,7 +4,45 @@ import { OpenAPIRegistry, OpenApiGeneratorV31 } from "@asteasolutions/zod-to-ope
 import { API_BASE_PATH, APP_VERSION } from "../config";
 import { ErrorResponse } from "./common.schema";
 import { Health } from "./health.schema";
+import {
+  Batch,
+  BatchLeaves,
+  BatchList,
+  BatchParams,
+  IssueCredentialIn,
+  IssueCredentialOut,
+  IssuedCredentialList,
+  IssuerBatchParams,
+  ListQuery,
+  StatusListOut,
+  StatusListParams,
+} from "./issuance.schema";
 import { Issuer, IssuerCreate, IssuerKey, IssuerList, IssuerParams } from "./issuers.schema";
+import {
+  ParseIn,
+  ParseOut,
+  Presentation,
+  PresentationRequest,
+  RequestCreate,
+  RequestParams,
+  Verification,
+  VerificationList,
+  Verifier,
+  VerifierCreate,
+  VerifierList,
+} from "./verifiers.schema";
+import {
+  Backup,
+  BackupIn,
+  CredentialOffer,
+  CredentialOfferList,
+  WalletCreate,
+  WalletCreated,
+  WalletLookupQuery,
+  WalletOfferParams,
+  WalletParams,
+  WalletPublic,
+} from "./wallets.schema";
 import { ChainInfo, CredentialSchemaList, Enums } from "./meta.schema";
 
 const registry = new OpenAPIRegistry();
@@ -21,6 +59,13 @@ const adminAuth = registry.registerComponent("securitySchemes", "adminToken", {
   description: "ISSUER_ADMIN_TOKEN (🔐 endpoints)",
 });
 const admin = [{ [adminAuth.name]: [] }];
+
+const walletAuth = registry.registerComponent("securitySchemes", "walletToken", {
+  type: "http",
+  scheme: "bearer",
+  description: "wallet_token from POST /wallets (👛 endpoints); only opens its own wallet",
+});
+const wallet = [{ [walletAuth.name]: [] }];
 
 registry.registerPath({
   method: "get",
@@ -75,6 +120,150 @@ registry.registerPath({
   security: admin,
   request: { params: IssuerParams },
   responses: { 200: json(IssuerKey, "The new active key"), ...errorResponses },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/issuers/{issuer_id}/credentials",
+  tags: ["issuance"],
+  security: admin,
+  request: { params: IssuerParams, body: json(IssueCredentialIn, "Credential to issue") },
+  responses: { 201: json(IssueCredentialOut, "Signed, offered to the wallet, added to the open batch"), ...errorResponses },
+});
+registry.registerPath({
+  method: "get",
+  path: "/issuers/{issuer_id}/credentials",
+  tags: ["issuance"],
+  security: admin,
+  request: { params: IssuerParams, query: ListQuery },
+  responses: { 200: json(IssuedCredentialList, "Issued credentials, newest first (no claims)"), ...errorResponses },
+});
+registry.registerPath({
+  method: "get",
+  path: "/issuers/{issuer_id}/batches",
+  tags: ["issuance"],
+  request: { params: IssuerParams },
+  responses: { 200: json(BatchList, "Issuance batches, newest first"), ...errorResponses },
+});
+registry.registerPath({
+  method: "post",
+  path: "/issuers/{issuer_id}/batches/{batch_id}/anchor",
+  tags: ["issuance"],
+  security: admin,
+  request: { params: IssuerBatchParams },
+  responses: { 200: json(Batch, "Batch anchored on-chain"), ...errorResponses },
+});
+registry.registerPath({
+  method: "get",
+  path: "/batches/{batch_id}/leaves",
+  tags: ["issuance"],
+  request: { params: BatchParams },
+  responses: { 200: json(BatchLeaves, "Batch commitments (wallet builds its Merkle proof)"), ...errorResponses },
+});
+registry.registerPath({
+  method: "get",
+  path: "/status-lists/{list_id}",
+  tags: ["issuance"],
+  request: { params: StatusListParams },
+  responses: { 200: json(StatusListOut, "Revocation bitstring + on-chain hash"), ...errorResponses },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/wallets",
+  tags: ["wallets"],
+  request: { body: json(WalletCreate, "New holder wallet") },
+  responses: { 201: json(WalletCreated, "Wallet created; wallet_token is shown only here"), ...errorResponses },
+});
+registry.registerPath({
+  method: "get",
+  path: "/wallets/lookup",
+  tags: ["wallets"],
+  request: { query: WalletLookupQuery },
+  responses: { 200: json(WalletPublic, "Public wallet info (pick a recipient)"), ...errorResponses },
+});
+registry.registerPath({
+  method: "get",
+  path: "/wallets/{wallet_id}/offers",
+  tags: ["wallets"],
+  security: wallet,
+  request: { params: WalletParams },
+  responses: { 200: json(CredentialOfferList, "Encrypted credential offers, newest first"), ...errorResponses },
+});
+registry.registerPath({
+  method: "post",
+  path: "/wallets/{wallet_id}/offers/{offer_id}/claim",
+  tags: ["wallets"],
+  security: wallet,
+  request: { params: WalletOfferParams },
+  responses: { 200: json(CredentialOffer, "Offer with claimed_at set (idempotent)"), ...errorResponses },
+});
+registry.registerPath({
+  method: "put",
+  path: "/wallets/{wallet_id}/backup",
+  tags: ["wallets"],
+  security: wallet,
+  request: { params: WalletParams, body: json(BackupIn, "Passphrase-encrypted wallet backup") },
+  responses: { 200: json(Backup, "Stored backup"), ...errorResponses },
+});
+registry.registerPath({
+  method: "get",
+  path: "/wallets/{wallet_id}/backup",
+  tags: ["wallets"],
+  security: wallet,
+  request: { params: WalletParams },
+  responses: { 200: json(Backup, "The latest backup"), ...errorResponses },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/verifiers",
+  tags: ["verifiers"],
+  request: { body: json(VerifierCreate, "New verifier") },
+  responses: { 201: json(Verifier, "Verifier created"), ...errorResponses },
+});
+registry.registerPath({
+  method: "get",
+  path: "/verifiers",
+  tags: ["verifiers"],
+  responses: { 200: json(VerifierList, "All verifiers"), ...errorResponses },
+});
+registry.registerPath({
+  method: "post",
+  path: "/presentation-requests/parse",
+  tags: ["verifiers"],
+  description: "501 NOT_IMPLEMENTED until V1.1-H3",
+  request: { body: json(ParseIn, "Plain-English requirement") },
+  responses: { 200: json(ParseOut, "Policy built by Claude"), ...errorResponses },
+});
+registry.registerPath({
+  method: "post",
+  path: "/presentation-requests",
+  tags: ["verifiers"],
+  request: { body: json(RequestCreate, "Policy to request") },
+  responses: { 201: json(PresentationRequest, "Request with a fresh nonce and wallet link"), ...errorResponses },
+});
+registry.registerPath({
+  method: "get",
+  path: "/presentation-requests/{request_id}",
+  tags: ["verifiers"],
+  request: { params: RequestParams },
+  responses: { 200: json(PresentationRequest, "The request (410 REQUEST_EXPIRED once expired)"), ...errorResponses },
+});
+registry.registerPath({
+  method: "post",
+  path: "/presentation-requests/{request_id}/presentations",
+  tags: ["verifiers"],
+  description: "501 NOT_IMPLEMENTED until V1.1-H2",
+  request: { params: RequestParams, body: json(Presentation, "Presentation built by zk-core in the wallet") },
+  responses: { 200: json(Verification, "Verification result (rejections are 200 too)"), ...errorResponses },
+});
+registry.registerPath({
+  method: "get",
+  path: "/presentation-requests/{request_id}/verifications",
+  tags: ["verifiers"],
+  request: { params: RequestParams },
+  responses: { 200: json(VerificationList, "Verifications of this request, newest first"), ...errorResponses },
 });
 
 export function buildOpenApiDocument() {
