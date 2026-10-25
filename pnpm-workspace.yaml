@@ -2,9 +2,12 @@ packages:
   - backend
   - frontend
   - contracts
+  - circuits
   - scripts
   - packages/*
 
-# Packages allowed to run install scripts (pnpm blocks all others).
+# Install scripts: true = allowed, false = deliberately skipped (pnpm 12 fails on unlisted ones).
 allowBuilds:
   esbuild: true
+  # circomlibjs → blake-hash: optional native addon; its pure-JS fallback is used instead.
+  blake-hash: false

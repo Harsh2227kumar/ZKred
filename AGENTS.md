@@ -139,7 +139,7 @@ Status values: `STARTED`, `DONE`, `BLOCKED`, `HANDOFF`. Never edit the other mem
 
 ## 7. Stack conventions (use only these)
 
-- **Monorepo:** pnpm workspaces. Package names (use these with `pnpm --filter`): `backend`, `frontend`, `contracts`, `scripts`, and `@zkred/zk-core` (scoped because other packages import it). `circuits/` is built by a shell script, not a workspace.
+- **Monorepo:** pnpm workspaces. Package names (use these with `pnpm --filter`): `backend`, `frontend`, `contracts`, `circuits`, `scripts`, and `@zkred/zk-core` (scoped because other packages import it). `circuits` only holds the circom toolchain + tests; its build output (`circuits/build/`) is committed.
 - **Language:** TypeScript everywhere (strict). Node 22+ (local machines run Node 24).
 - **Frontend:** Vite + React + TypeScript + Tailwind + shadcn/ui + TanStack Query + React Router + `openapi-fetch`; IndexedDB via `idb-keyval`; toasts via `sonner`
 - **Backend:** Express + Zod + `@asteasolutions/zod-to-openapi` + Drizzle ORM (`drizzle-kit` migrations) + `ethers` v6 + `pino` logging
