@@ -22,7 +22,7 @@
 | V0-S4 | EC2 deploy hello-world | IN PROGRESS: scripts merged (#13); live URL not up yet | #13 |
 | V0-S5 | Bedrock model access + credentials | IN PROGRESS: config merged (#14, #15); `/health` still shows `ai: down` | #14 |
 | V0-S6 | gen:api (openapi-typescript → src/api/types.ts) | DONE | #16 |
-| V1-S1 | Issuer console (real API & Base Sepolia) | DONE | |
+| V1-S1 | Issuer console (real API & Base Sepolia) | DONE | #26 |
 
 ## Blocked on
 
