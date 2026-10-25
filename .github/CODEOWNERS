@@ -1,23 +1,30 @@
-# Replace @HARSH / @SPARSH with real GitHub handles at H0.
-# GitHub automatically requests a review from the owner.
+# ZKred CODEOWNERS — Automated Review Assignment
+# Conforms strictly to AGENTS.md §1 and CONTRIBUTING.md
 
-*                                   @HARSH
-/backend/                           @HARSH
-/packages/zk-core/                  @HARSH
-/contracts/                         @HARSH
-/circuits/                          @HARSH
-/package.json                       @HARSH
-/pnpm-workspace.yaml                @HARSH
-/tsconfig.base.json                 @HARSH
-/md/CONTRACTS.md                    @HARSH
-/frontend/                          @SPARSH
-/infra/                             @SPARSH
-/docker-compose.yml                 @SPARSH
-/scripts/                           @SPARSH
-/seed/                              @SPARSH
-/docs/                              @SPARSH
-/.github/                           @SPARSH
-/README.md                          @SPARSH
-/md/                                @HARSH @SPARSH
-/md/progress/HARSH-PROGRESS.md      @HARSH
-/md/progress/SPARSH-PROGRESS.md     @SPARSH
+# Default fallback
+*                                   @Harsh2227kumar
+
+# HARSH: Backend, Crypto Core, Circuits, Contracts, Workspace Configs
+/backend/                           @Harsh2227kumar
+/packages/zk-core/                  @Harsh2227kumar
+/contracts/                         @Harsh2227kumar
+/circuits/                          @Harsh2227kumar
+/package.json                       @Harsh2227kumar
+/pnpm-workspace.yaml                @Harsh2227kumar
+/tsconfig.base.json                 @Harsh2227kumar
+/md/CONTRACTS.md                    @Harsh2227kumar
+/md/progress/HARSH-PROGRESS.md      @Harsh2227kumar
+
+# SPARSH: Frontend, Infra/Docker, Scripts, Seed, Docs, GitHub Configs
+/frontend/                          @Sparsh566
+/infra/                             @Sparsh566
+/docker-compose.yml                 @Sparsh566
+/scripts/                           @Sparsh566
+/seed/                              @Sparsh566
+/docs/                              @Sparsh566
+/.github/                           @Sparsh566
+/README.md                          @Sparsh566
+/md/progress/SPARSH-PROGRESS.md     @Sparsh566
+
+# Shared Markdown Planning
+/md/                                @Harsh2227kumar @Sparsh566
