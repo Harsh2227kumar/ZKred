@@ -20,102 +20,47 @@ export type IssuerKey = Schemas['IssuerKey'];
 export type IssuerCreate = Schemas['IssuerCreate'];
 export type IssuerKind = Schemas['IssuerKind'];
 export type IssuersListResponse = Schemas['IssuerList'];
+export type CompromiseReport = Schemas['CompromiseReport'];
 
-// Contracts mirror md/CONTRACTS.md §3.2 & §3.6
-export interface Batch {
-  batch_id: string;
-  issuer_id: string;
-  key_id: string;
-  size: number;
-  status: 'open' | 'anchored';
-  root: string | null;
-  anchored_at: string | null;
-  tx_hash: string | null;
-}
+export type IssueCredentialIn = Schemas['IssueCredentialIn'];
+export type IssueCredentialOut = Schemas['IssueCredentialOut'];
+export type IssuedCredential = Schemas['IssuedCredential'];
+export type IssuedCredentialList = Schemas['IssuedCredentialList'];
+export type Batch = Schemas['Batch'];
+export type BatchLeaves = Schemas['BatchLeaves'];
+export type StatusListOut = Schemas['StatusListOut'];
+export type RevokeOut = Schemas['RevokeOut'];
 
-export interface BatchesListResponse {
-  items: Batch[];
-}
+// Aliases kept for the V1-S1 issuer console call sites (md/CONTRACTS.md §3.2 & §3.6)
+export type BatchesListResponse = Schemas['BatchList'];
+export type IssuedCredentialsListResponse = Schemas['IssuedCredentialList'];
+export type WalletLookupResponse = Schemas['WalletPublic'];
 
-export interface IssuedCredential {
-  id: string;
-  credential_type: string;
-  wallet_id: string;
-  batch_id: string;
-  status_index: number;
-  commitment: string;
-  key_id: string;
-  issued_at: string;
-  revoked_at: string | null;
-}
+export type WalletCreated = Schemas['WalletCreated'];
+export type WalletPublic = Schemas['WalletPublic'];
+export type CredentialOffer = Schemas['CredentialOffer'];
+export type Backup = Schemas['Backup'];
+export type BackupIn = Schemas['BackupIn'];
+export type ReissueIn = Schemas['ReissueIn'];
 
-export interface IssuedCredentialsListResponse {
-  items: IssuedCredential[];
-  next_cursor?: string | null;
-}
-
-export interface IssueCredentialIn {
-  credential_type: string;
-  wallet_id: string;
-  claims: Record<string, string | number>;
-}
-
-export interface IssueCredentialOut {
-  credential_id: string;
-  offer_id: string;
-  batch_id: string;
-  status_list_id: string;
-  status_index: number;
-  commitment: string;
-}
-
-export interface WalletLookupResponse {
-  id: string;
-  display_name: string;
-  enc_public_key: string;
-}
-
+// Local request shape for POST /wallets (kept for the V1-S2 wallet call sites)
 export interface WalletCreateIn {
   display_name: string;
   enc_public_key: string;
 }
 
-export interface WalletCreated {
-  id: string;
-  display_name: string;
-  wallet_token: string;
-}
+// Alias kept for the V1-S2 wallet call sites
+export type OffersListResponse = Schemas['CredentialOfferList'];
 
-export interface CredentialOffer {
-  id: string;
-  wallet_id: string;
-  issuer_id: string;
-  credential_type: string;
-  ephemeral_public_key: string;
-  iv: string;
-  ciphertext: string;
-  created_at: string;
-  claimed_at: string | null;
-}
+export type Verifier = Schemas['Verifier'];
+export type ParseOut = Schemas['ParseOut'];
+export type PresentationPolicy = Schemas['PresentationPolicy'];
+export type PresentationRequest = Schemas['PresentationRequest'];
+export type Presentation = Schemas['Presentation'];
+export type Verification = Schemas['Verification'];
+export type VerificationStepResult = Schemas['VerificationStepResult'];
 
-export interface OffersListResponse {
-  items: CredentialOffer[];
-}
-
-export interface BackupIn {
-  ciphertext: string;
-  iv: string;
-  salt: string;
-  kdf_iterations: number;
-  version: number;
-}
-
-export interface Backup {
-  wallet_id: string;
-  ciphertext: string;
-  iv: string;
-  salt: string;
-  kdf_iterations: number;
-  version: number;
-  updated_at: string;
-}
+export type StolenKey = Schemas['StolenKey'];
+export type ForgeOut = Schemas['ForgeOut'];
+export type AttackRunOut = Schemas['AttackRunOut'];
+export type AttackState = Schemas['AttackState'];

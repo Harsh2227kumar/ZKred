@@ -8,8 +8,3 @@ export class ZkCoreError extends Error {
     this.code = code;
   }
 }
-
-/** Placeholder for public API members whose implementation belongs to a later task. Never silently succeeds. */
-export function notImplemented(member: string, task: string): never {
-  throw new ZkCoreError("NOT_IMPLEMENTED", `zk-core.${member} is not implemented yet (${task})`);
-}
