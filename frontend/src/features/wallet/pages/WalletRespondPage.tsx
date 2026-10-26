@@ -175,13 +175,17 @@ export const WalletRespondPage: React.FC = () => {
   }
 
   if (requestError || !request) {
+    // Only a 404 means the link is wrong; anything else (API down, expired) is shown as it is.
+    const requestNotFound = !requestError || (requestError as { error?: { code?: string } }).error?.code === 'NOT_FOUND';
     return (
       <div className="max-w-2xl mx-auto space-y-4 py-8">
         <div className="p-6 rounded-3xl border border-[#fb7185]/30 bg-[#fb7185]/10 space-y-3 text-center">
           <AlertCircle className="w-8 h-8 text-[#fb7185] mx-auto" />
-          <h2 className="text-base font-semibold text-[#f0f7f7]">Verification Request Not Found</h2>
+          <h2 className="text-base font-semibold text-[#f0f7f7]">{requestNotFound ? 'Verification Request Not Found' : 'Could Not Open This Request'}</h2>
           <p className="text-xs text-[#8ea5a8]">
-            This presentation request link may have expired or the verifier request ID is invalid.
+            {requestNotFound
+              ? 'This presentation request link may have expired or the verifier request ID is invalid.'
+              : toUserMessage(requestError)}
           </p>
           <div className="pt-2">
             <NavLink
