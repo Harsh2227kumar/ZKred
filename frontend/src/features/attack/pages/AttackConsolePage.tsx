@@ -4,7 +4,7 @@
 import React, { useMemo, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Copy, Flame, KeyRound, Loader2, Play, RotateCcw, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { Copy, Flame, KeyRound, Loader2, Play, RotateCcw, ShieldAlert, ShieldCheck, Wallet } from 'lucide-react';
 import { AdminTokenButton } from '@/components/common/AdminTokenButton';
 import { ChainName } from '@/components/common/ChainName';
 import { EmptyState } from '@/components/common/EmptyState';
@@ -176,10 +176,19 @@ export const AttackConsolePage: React.FC = () => {
             Verify forged ({mode === 'full' ? 'full' : 'naive'})
           </button>
           {stolenKey?.status === 'compromised' && stolenKey.compromised_from ? (
-            <p className="text-xs p-2.5 rounded-lg bg-emerald-500/10 text-emerald-500">
-              Key reported compromised from {new Date(stolenKey.compromised_from).toLocaleString()} (chain time). Verify again: forgeries
-              anchored after the cutoff are isolated, legacy degrees stay valid.
-            </p>
+            <div className="space-y-2">
+              <p className="text-xs p-2.5 rounded-lg bg-emerald-500/10 text-emerald-500">
+                Key reported compromised from {new Date(stolenKey.compromised_from).toLocaleString()} (chain time). Verify again: forgeries
+                anchored after the cutoff are isolated, legacy degrees stay valid.
+              </p>
+              <NavLink
+                to="/wallet"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#130e24] border border-[#231a3d] hover:border-[#79bab6] text-[#79bab6] transition-colors"
+              >
+                <Wallet className="w-3.5 h-3.5" />
+                <span>Inspect Holder Wallet Recovery (Refresh)</span>
+              </NavLink>
+            </div>
           ) : (
             lastFull &&
             lastFull.accepted > 0 &&

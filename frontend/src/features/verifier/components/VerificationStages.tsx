@@ -1,5 +1,6 @@
 // frontend/src/features/verifier/components/VerificationStages.tsx
 import React, { useState } from 'react';
+import { NavLink } from 'react-router-dom';
 import {
   Clock,
   ShieldAlert,
@@ -240,14 +241,20 @@ export const VerificationStages: React.FC<VerificationStagesProps> = ({
 
                 <div className="p-3 rounded-xl bg-[#090614] border border-[#231a3d] flex items-center justify-between gap-3 min-w-0">
                   <span className="text-xs font-mono text-[#79bab6] truncate min-w-0" title={shareUrl}>{shareUrl}</span>
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    <NavLink
+                      to={`/wallet/respond?request=${request.id}`}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-linear-to-r from-[#06838d] to-[#014f85] text-white shadow-xs hover:opacity-90 transition-opacity"
+                    >
+                      <span>⚡ Respond as Holder</span>
+                    </NavLink>
                     <button
                       type="button"
                       onClick={handleCopyLink}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#06838d] hover:bg-[#046168] text-white shadow-sm transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#130e24] hover:bg-[#1a1430] border border-[#231a3d] text-[#f0f7f7] shadow-xs transition-colors"
                     >
-                      {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                      <span>{copied ? 'Copied' : 'Copy Link'}</span>
+                      {copied ? <Check className="w-3.5 h-3.5 text-[#79bab6]" /> : <Copy className="w-3.5 h-3.5 text-[#8ea5a8]" />}
+                      <span>{copied ? 'Copied' : 'Copy'}</span>
                     </button>
                     <a
                       href={shareUrl}

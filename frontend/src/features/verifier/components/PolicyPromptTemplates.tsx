@@ -1,6 +1,6 @@
 // frontend/src/features/verifier/components/PolicyPromptTemplates.tsx
 import React from 'react';
-import { Sparkles, Stethoscope, GraduationCap, HelpCircle } from 'lucide-react';
+import { Sparkles, Stethoscope, GraduationCap, HelpCircle, ShieldCheck } from 'lucide-react';
 
 interface PromptTemplate {
   id: string;
@@ -19,6 +19,14 @@ const TEMPLATES: PromptTemplate[] = [
     description: 'Accredited MBBS degree + Age ≥ 21 without revealing name, DOB, or address',
     text: 'Verify the candidate holds an accredited MBBS Degree and is at least 21 years old. Do not collect their name, date of birth, or home address.',
     tag: 'Judge Demo',
+  },
+  {
+    id: 'residency-doctor',
+    label: 'Dual Credential (MBBS + License)',
+    icon: ShieldCheck,
+    description: 'Accredited MBBS degree and active Medical License with Age ≥ 21',
+    text: 'Verify the candidate holds an accredited MBBS Degree and an active Medical License from an accredited medical council, and is at least 21 years old. Do not collect personal identifiers.',
+    tag: 'Full Multi-Proof',
   },
   {
     id: 'tech-engineer',
@@ -53,7 +61,7 @@ export const PolicyPromptTemplates: React.FC<PolicyPromptTemplatesProps> = ({
         <span>One-Click Evaluation Templates:</span>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
         {TEMPLATES.map((tmpl) => {
           const Icon = tmpl.icon;
           return (
