@@ -1,7 +1,7 @@
 // frontend/src/api/queries/issuers.ts
 // TanStack query & mutation hooks for Institutional Issuers, Keys, Batches, and Issuance.
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminToken, apiClient, bearer, unwrap } from '@/api/client';
 import { config } from '@/config';
 import { getAdminAuthHeaders } from '@/lib/storage/session-token';
@@ -11,6 +11,7 @@ import type {
   IssuerCreate,
   IssuersListResponse,
   CompromiseReport,
+  RevokeOut,
   Batch,
   BatchesListResponse,
   IssuedCredentialsListResponse,
@@ -24,25 +25,14 @@ import type {
 export function useIssuers() {
   return useQuery<IssuersListResponse>({
     queryKey: ['issuers'],
-    queryFn: async () => {
-      const { data, error } = await apiClient.GET('/issuers', {});
-      if (error) throw error;
-      return data as IssuersListResponse;
-    },
+    queryFn: () => unwrap(apiClient.GET('/issuers')),
   });
 }
 
 export function useIssuer(issuerId?: string) {
   return useQuery<Issuer>({
     queryKey: ['issuer', issuerId],
-    queryFn: async () => {
-      if (!issuerId) throw new Error('Issuer ID is required');
-      const { data, error } = await apiClient.GET('/issuers/{issuer_id}', {
-        params: { path: { issuer_id: issuerId } },
-      });
-      if (error) throw error;
-      return data as Issuer;
-    },
+    queryFn: () => unwrap(apiClient.GET('/issuers/{issuer_id}', { params: { path: { issuer_id: issuerId! } } })),
     enabled: Boolean(issuerId),
   });
 }
@@ -63,20 +53,19 @@ export function useBatches(issuerId?: string) {
   });
 }
 
+/** The issuer's credential records (no claims), newest first, one API page (`next_cursor`) at a time. */
 export function useIssuedCredentials(issuerId?: string) {
-  return useQuery<IssuedCredentialsListResponse>({
+  return useInfiniteQuery<IssuedCredentialsListResponse>({
     queryKey: ['issuer', issuerId, 'credentials'],
-    queryFn: async () => {
-      if (!issuerId) throw new Error('Issuer ID is required');
-      const res = await fetch(`${config.apiBaseUrl}/issuers/${issuerId}/credentials`, {
-        headers: getAdminAuthHeaders(),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw err;
-      }
-      return res.json() as Promise<IssuedCredentialsListResponse>;
-    },
+    initialPageParam: undefined,
+    getNextPageParam: (last) => last.next_cursor ?? undefined,
+    queryFn: ({ pageParam }) =>
+      unwrap(
+        apiClient.GET('/issuers/{issuer_id}/credentials', {
+          params: { path: { issuer_id: issuerId! }, query: pageParam ? { cursor: pageParam as string } : {} },
+          headers: bearer(adminToken.get()),
+        }),
+      ),
     enabled: Boolean(issuerId),
   });
 }
@@ -199,6 +188,23 @@ export function useReportCompromise(issuerId: string) {
       queryClient.invalidateQueries({ queryKey: ['issuers'] });
       queryClient.invalidateQueries({ queryKey: ['issuer', issuerId] });
       queryClient.invalidateQueries({ queryKey: ['issuer', issuerId, 'batches'] });
+    },
+  });
+}
+
+/** Flips the credential's status bit and pins the new list hash on-chain (CONTRACTS §3.2 revoke). */
+export function useRevokeCredential(issuerId: string) {
+  const queryClient = useQueryClient();
+  return useMutation<RevokeOut, unknown, string>({
+    mutationFn: (credentialId) =>
+      unwrap(
+        apiClient.POST('/issuers/{issuer_id}/credentials/{credential_id}/revoke', {
+          params: { path: { issuer_id: issuerId, credential_id: credentialId } },
+          headers: bearer(adminToken.get()),
+        }),
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['issuer', issuerId, 'credentials'] });
     },
   });
 }

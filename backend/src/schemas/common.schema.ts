@@ -29,5 +29,8 @@ export const Base64url = z
 
 export const DateTime = z.iso.datetime().meta({ id: "DateTime", description: "ISO-8601 UTC timestamp" });
 
+/** Largest value of a Postgres `integer` (int4) column: request integers stored in one are capped here (422, not a 500). */
+export const PG_INT_MAX = 2 ** 31 - 1;
+
 /** Path/query param for a DB id. */
 export const Uuid = z.uuid();

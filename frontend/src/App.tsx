@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { errorStatus } from '@/api/client';
 import { Layout } from '@/components/layout/Layout';
 import { HomePage } from '@/features/home/pages/HomePage';
 import { IssuerListPage } from '@/features/issuer/pages/IssuerListPage';
@@ -15,6 +16,12 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 1000 * 30, // 30 seconds
       refetchOnWindowFocus: false,
+      // A 4xx (unknown id, expired request, missing token) won't change on retry: show it at once instead of
+      // spinning through backoff; network / 5xx errors get one more try.
+      retry: (failureCount, error) => {
+        const status = errorStatus(error);
+        return !(status && status >= 400 && status < 500) && failureCount < 1;
+      },
     },
   },
 });
