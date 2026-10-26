@@ -5,8 +5,11 @@ import { resolve } from "node:path";
 import { z } from "zod";
 
 // Local dev convenience: load backend/.env, then the repo-root .env. Real deployments inject env directly.
-for (const file of [resolve(process.cwd(), ".env"), resolve(process.cwd(), "..", ".env")]) {
-  if (existsSync(file)) process.loadEnvFile(file);
+// Never under test: test/setup-env.ts is the whole test environment, so a developer's .env can't leak into the suites.
+if (process.env.NODE_ENV !== "test") {
+  for (const file of [resolve(process.cwd(), ".env"), resolve(process.cwd(), "..", ".env")]) {
+    if (existsSync(file)) process.loadEnvFile(file);
+  }
 }
 
 const hexAddress = z.string().regex(/^0x[0-9a-fA-F]{40}$/, "must be a 0x-prefixed 20-byte address");

@@ -19,6 +19,7 @@ import * as repo from "../db/repositories/issuance.repo";
 import * as issuersRepo from "../db/repositories/issuers.repo";
 import * as walletsRepo from "../db/repositories/wallets.repo";
 import * as chain from "../integrations/chain";
+import { logger } from "../logger";
 import type {
   Batch,
   BatchLeaves,
@@ -161,6 +162,8 @@ export async function issueCredential(issuerId: string, input: IssueCredentialIn
 /**
  * Flips the credential's status bit and pins the new list hash on-chain. If an earlier attempt got the tx mined but
  * crashed before the DB update, the chain already holds the new hash and only the DB is brought in line.
+ * The stored list must still hash to what the chain holds: an edited list (e.g. a revoked bit cleared in the DB) is
+ * never re-published, or the next honest revocation would pin the edit on-chain and un-revoke credentials for good.
  */
 export async function revokeCredential(issuerId: string, credentialId: string): Promise<RevokeOut> {
   return withIssuerLock(issuerId, async () => {
@@ -172,11 +175,19 @@ export async function revokeCredential(issuerId: string, credentialId: string): 
     if (!list) throw new Error(`status list ${cred.statusListId} missing for credential ${credentialId}`);
 
     const bits = new Uint8Array(list.bitstring);
+    const storedHash = statusList.hash(bits);
     statusList.setBit(bits, cred.statusIndex, true);
     const hash = statusList.hash(bits);
-    const onchain = await chain.getListHash(list.listId as Hex32);
+    const onchain = (await chain.getListHash(list.listId as Hex32))?.listHash.toLowerCase();
+    const alreadyPublished = onchain === hash.toLowerCase();
+    if (!alreadyPublished && onchain !== storedHash.toLowerCase()) {
+      logger.error({ issuer_id: issuerId, status_list_id: list.listId }, "stored status list does not match its on-chain hash");
+      throw new AppError("CONFLICT", "The stored status list does not match its on-chain hash; refusing to publish it", {
+        status_list_id: "stored list differs from the chain (edited or out of sync); restore it before revoking",
+      });
+    }
     let txHash = list.txHash ?? "";
-    if (onchain?.listHash.toLowerCase() !== hash.toLowerCase()) {
+    if (!alreadyPublished) {
       const tx = await chain.setListHash(
         openGovernanceKey(issuer.did, issuer.governanceKeyEnc),
         issuer.issuerChainId as Hex32,
