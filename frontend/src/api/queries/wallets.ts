@@ -1,6 +1,6 @@
 // frontend/src/api/queries/wallets.ts
 // TanStack query & mutation hooks for Holder Wallets, Offers Inbox, and Backups,
-// plus the plain async functions used by the wallet session hook (V1.2-H4).
+// plus plain async functions for the background backup sync and the credential refresh (re-issue) flow.
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient, bearer, unwrap } from '@/api/client';
 import { config } from '@/config';
@@ -19,32 +19,10 @@ function walletAuthHeaders(walletToken?: string): Record<string, string> {
   return { Authorization: `Bearer ${walletToken}` };
 }
 
-// --- Plain functions (wallet-session driven, used by features/wallet/hooks/useWalletSession) ---
-
-export function createWallet(displayName: string, encPublicKey: string): Promise<WalletCreated> {
-  return unwrap(apiClient.POST('/wallets', { body: { display_name: displayName, enc_public_key: encPublicKey } })) as Promise<WalletCreated>;
-}
-
-export async function listOffers(walletId: string, token: string): Promise<CredentialOffer[]> {
-  const out = await unwrap(apiClient.GET('/wallets/{wallet_id}/offers', { params: { path: { wallet_id: walletId } }, headers: bearer(token) }));
-  return (out as OffersListResponse).items;
-}
-
-export function claimOffer(walletId: string, offerId: string, token: string): Promise<CredentialOffer> {
-  return unwrap(
-    apiClient.POST('/wallets/{wallet_id}/offers/{offer_id}/claim', {
-      params: { path: { wallet_id: walletId, offer_id: offerId } },
-      headers: bearer(token),
-    }),
-  ) as Promise<CredentialOffer>;
-}
+// --- Plain functions (called outside React Query: features/wallet/backup-sync.ts, the WalletPage refresh flow) ---
 
 export function putBackup(walletId: string, token: string, body: BackupIn): Promise<Backup> {
   return unwrap(apiClient.PUT('/wallets/{wallet_id}/backup', { params: { path: { wallet_id: walletId } }, body, headers: bearer(token) })) as Promise<Backup>;
-}
-
-export function getBackup(walletId: string, token: string): Promise<Backup> {
-  return unwrap(apiClient.GET('/wallets/{wallet_id}/backup', { params: { path: { wallet_id: walletId } }, headers: bearer(token) })) as Promise<Backup>;
 }
 
 export function requestReissue(issuerId: string, token: string, body: ReissueIn): Promise<{ offer_id: string }> {
