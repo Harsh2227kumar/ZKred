@@ -5,11 +5,12 @@ import { ArrowLeft, Shield, AlertCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePresentationRequest, useSubmitPresentation } from '@/api/queries/verifiers';
 import { useIssuers, fetchBatchLeaves } from '@/api/queries/issuers';
-import { getReplacedCommitments, getStoredCredentials } from '@/lib/wallet-store';
+import { getReplacedCommitments, getStoredCredentials, isWalletLocked } from '@/lib/wallet-store';
 import { createPresentation, type IssuerInfo } from '@/lib/zk';
 import type { SignedCredential } from '@/lib/wallet-crypto';
 import type { Verification } from '@/api/schemas';
 import { ConsentScreen } from '../components/ConsentScreen';
+import { DeviceUnlock } from '../components/DeviceUnlock';
 import { ProvingProgressModal, type ProvingStage } from '../components/ProvingProgressModal';
 import { PresentationResultCard } from '../components/PresentationResultCard';
 import { EmptyState } from '@/components/common/EmptyState';
@@ -23,6 +24,8 @@ export const WalletRespondPage: React.FC = () => {
   const [localCredentials, setLocalCredentials] = useState<SignedCredential[]>([]);
   const [replaced, setReplaced] = useState<string[]>([]);
   const [isLoadingStorage, setIsLoadingStorage] = useState(true);
+  const [locked, setLocked] = useState(false);
+  const [unlockCount, setUnlockCount] = useState(0);
 
   // Prover & Verification Lifecycle State
   const [provingStage, setProvingStage] = useState<ProvingStage>('IDLE');
@@ -41,7 +44,11 @@ export const WalletRespondPage: React.FC = () => {
 
   useEffect(() => {
     let mounted = true;
-    Promise.all([getStoredCredentials(), getReplacedCommitments()])
+    isWalletLocked()
+      .then(async (isLocked) => {
+        if (mounted) setLocked(isLocked);
+        return isLocked ? ([[], []] as [SignedCredential[], string[]]) : Promise.all([getStoredCredentials(), getReplacedCommitments()]);
+      })
       .then(([creds, replacedCommitments]) => {
         if (mounted) {
           setLocalCredentials(creds);
@@ -57,7 +64,7 @@ export const WalletRespondPage: React.FC = () => {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [unlockCount]);
 
   // Only credentials a verifier would accept right now (not revoked, not in a compromise window, not replaced by a
   // refreshed copy), newest first so a refreshed copy wins. If the status can't be read, the verifier still decides.
@@ -160,6 +167,19 @@ export const WalletRespondPage: React.FC = () => {
               <ArrowLeft className="w-3.5 h-3.5" /> Back to My Wallet
             </NavLink>
           }
+        />
+      </div>
+    );
+  }
+
+  if (locked) {
+    return (
+      <div className="py-12">
+        <DeviceUnlock
+          onUnlocked={() => {
+            setIsLoadingStorage(true);
+            setUnlockCount((n) => n + 1);
+          }}
         />
       </div>
     );

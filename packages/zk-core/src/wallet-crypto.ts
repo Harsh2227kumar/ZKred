@@ -1,6 +1,7 @@
 // Wallet-side crypto on WebCrypto only (browsers + Node 22). The wallet UI and backend call these; never raw crypto.
 //  - Offers: ECDH-ES (P-256, ephemeral sender key) → HKDF-SHA256 → AES-256-GCM over the SignedCredential JSON.
 //  - Backups: PBKDF2-SHA256(passphrase, salt, iterations) → AES-256-GCM over JSON.
+//  - Device lock: HKDF-SHA256(WebAuthn PRF secret, salt) → AES-256-GCM over the on-device wallet JSON.
 import { base64urlToBytes, bytesToBase64url, bytesToUtf8, utf8ToBytes } from "./encoding";
 import { ZkCoreError } from "./errors";
 import type { SignedCredential } from "./types";
@@ -24,6 +25,9 @@ const IV_BYTES = 12;
 /** PBKDF2-HMAC-SHA256 work factor for wallet backups (OWASP Password Storage Cheat Sheet recommendation). */
 export const BACKUP_KDF_ITERATIONS = 600_000;
 const SALT_BYTES = 16;
+const DEVICE_HKDF_INFO = utf8ToBytes("zkred:device-lock:v1");
+/** WebAuthn PRF outputs are 32 bytes. */
+const DEVICE_SECRET_MIN_BYTES = 32;
 
 function subtle(): SubtleCrypto {
   const s = globalThis.crypto?.subtle;
@@ -149,6 +153,43 @@ async function decryptBackup(
   return JSON.parse(bytesToUtf8(new Uint8Array(pt)));
 }
 
+async function deviceKey(secret: Uint8Array, salt: Uint8Array, usage: KeyUsage): Promise<CryptoKey> {
+  if (secret.length < DEVICE_SECRET_MIN_BYTES) {
+    throw new ZkCoreError("INVALID_DEVICE_SECRET", `device secret must be at least ${DEVICE_SECRET_MIN_BYTES} bytes`);
+  }
+  const hkdfKey = await subtle().importKey("raw", buf(secret), "HKDF", false, ["deriveKey"]);
+  return subtle().deriveKey(
+    { name: "HKDF", hash: "SHA-256", salt: buf(salt), info: buf(DEVICE_HKDF_INFO) },
+    hkdfKey,
+    { name: "AES-GCM", length: 256 },
+    false,
+    [usage],
+  );
+}
+
+/** Seals wallet data on the device under a secret released by the platform authenticator (WebAuthn PRF output). */
+async function sealWithDeviceSecret(
+  secret: Uint8Array,
+  data: unknown,
+): Promise<{ ciphertext: string; iv: string; salt: string }> {
+  const salt = randomBytes(SALT_BYTES);
+  const iv = randomBytes(IV_BYTES);
+  const key = await deviceKey(secret, salt, "encrypt");
+  const ct = await subtle().encrypt({ name: "AES-GCM", iv }, key, buf(utf8ToBytes(JSON.stringify(data))));
+  return { ciphertext: bytesToBase64url(new Uint8Array(ct)), iv: bytesToBase64url(iv), salt: bytesToBase64url(salt) };
+}
+
+async function openWithDeviceSecret(secret: Uint8Array, s: { ciphertext: string; iv: string; salt: string }): Promise<unknown> {
+  const key = await deviceKey(secret, base64urlToBytes(s.salt), "decrypt");
+  let pt: ArrayBuffer;
+  try {
+    pt = await subtle().decrypt({ name: "AES-GCM", iv: buf(base64urlToBytes(s.iv)) }, key, buf(base64urlToBytes(s.ciphertext)));
+  } catch {
+    throw new ZkCoreError("DEVICE_UNLOCK_FAILED", "wrong device secret or corrupted wallet data");
+  }
+  return JSON.parse(bytesToUtf8(new Uint8Array(pt)));
+}
+
 /** True if `publicKeyB64` is a raw (uncompressed) P-256 point that offers can be encrypted to. */
 async function isValidPublicKey(publicKeyB64: string): Promise<boolean> {
   try {
@@ -166,4 +207,6 @@ export const walletCrypto = {
   decryptOffer,
   encryptBackup,
   decryptBackup,
+  sealWithDeviceSecret,
+  openWithDeviceSecret,
 };

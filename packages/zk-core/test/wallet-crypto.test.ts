@@ -54,6 +54,30 @@ describe("walletCrypto backups", () => {
   });
 });
 
+describe("walletCrypto device lock", () => {
+  const secret = () => globalThis.crypto.getRandomValues(new Uint8Array(32));
+
+  it("seal → open round-trips with the same device secret", async () => {
+    const s = secret();
+    const data = { keypair: { privateKeyJwk: { d: randomText("d") } }, credentials: [credential()] };
+    const sealed = await walletCrypto.sealWithDeviceSecret(s, data);
+    expect(sealed.ciphertext).not.toContain(data.keypair.privateKeyJwk.d);
+    expect(await walletCrypto.openWithDeviceSecret(s, sealed)).toEqual(data);
+  });
+
+  it("throws DEVICE_UNLOCK_FAILED on another secret or a tampered ciphertext", async () => {
+    const s = secret();
+    const sealed = await walletCrypto.sealWithDeviceSecret(s, { x: 1 });
+    await expect(walletCrypto.openWithDeviceSecret(secret(), sealed)).rejects.toMatchObject({ code: "DEVICE_UNLOCK_FAILED" });
+    const flipped = { ...sealed, ciphertext: (sealed.ciphertext[0] === "A" ? "B" : "A") + sealed.ciphertext.slice(1) };
+    await expect(walletCrypto.openWithDeviceSecret(s, flipped)).rejects.toMatchObject({ code: "DEVICE_UNLOCK_FAILED" });
+  });
+
+  it("rejects a device secret shorter than 32 bytes", async () => {
+    await expect(walletCrypto.sealWithDeviceSecret(new Uint8Array(16), {})).rejects.toMatchObject({ code: "INVALID_DEVICE_SECRET" });
+  });
+});
+
 describe("walletCrypto.isValidPublicKey", () => {
   it("accepts a generated wallet key and rejects anything that is not a raw P-256 point", async () => {
     const { publicKeyB64 } = await walletCrypto.generateWalletKeyPair();
