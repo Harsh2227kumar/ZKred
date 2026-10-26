@@ -2,6 +2,7 @@
 // IndexedDB storage management for holder keys, token, and claimed credentials via idb-keyval.
 import { get, set, del } from 'idb-keyval';
 import type { SignedCredential } from './wallet-crypto';
+import { walletCrypto } from './zk';
 
 export interface WalletMetadata {
   id: string;
