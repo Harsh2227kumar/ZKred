@@ -1,6 +1,6 @@
 // frontend/src/features/issuer/pages/IssuerDetailPage.tsx
 import React, { useState } from 'react';
-import { useParams, NavLink } from 'react-router-dom';
+import { useParams, useSearchParams, NavLink } from 'react-router-dom';
 import {
   ArrowLeft,
   Key,
@@ -11,6 +11,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { useIssuer } from '@/api/queries/issuers';
+import { useChainInfo } from '@/api/queries/meta';
 import { Loading } from '@/components/common/Loading';
 import { ErrorState } from '@/components/common/ErrorState';
 import { EmptyState } from '@/components/common/EmptyState';
@@ -22,9 +23,22 @@ import { BatchesTab } from '../components/BatchesTab';
 import { AdminTokenPrompt } from '../components/AdminTokenPrompt';
 import { hasAdminToken } from '@/lib/storage/session-token';
 
+const TABS = [
+  { id: 'keys', label: 'Keys & Epochs', icon: Key },
+  { id: 'issue', label: 'Issue Credential', icon: PlusCircle },
+  { id: 'issued', label: 'Issued Credentials', icon: FileText },
+  { id: 'batches', label: 'Batches & Anchors', icon: Layers },
+] as const;
+type IssuerTab = (typeof TABS)[number]['id'];
+
 export const IssuerDetailPage: React.FC = () => {
   const { issuerId } = useParams<{ issuerId: string }>();
-  const [activeTab, setActiveTab] = useState<'keys' | 'issue' | 'issued' | 'batches'>('keys');
+  // ?tab= lets other pages deep-link a tab (the attack console links "keys" to report a compromise).
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const activeTab: IssuerTab = TABS.some((t) => t.id === tabParam) ? (tabParam as IssuerTab) : 'keys';
+  const setActiveTab = (tab: IssuerTab) => setSearchParams({ tab }, { replace: true });
+  const { data: chain } = useChainInfo();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(() => hasAdminToken());
 
@@ -34,7 +48,7 @@ export const IssuerDetailPage: React.FC = () => {
     setIsAuthenticated(hasAdminToken());
   };
 
-  if (isLoading) return <Loading label="Loading institution details from Base Sepolia..." />;
+  if (isLoading) return <Loading label={`Loading institution details from ${chain?.network_name ?? 'the chain'}...`} />;
   if (error) return <ErrorState error={error} onRetry={() => refetch()} />;
   if (!issuer) return <EmptyState title="Institution not found" description="The requested institution record was not found." />;
 
@@ -103,20 +117,17 @@ export const IssuerDetailPage: React.FC = () => {
       </div>
 
       {/* Segmented Control Tabs */}
-      <div className="inline-flex items-center p-1 rounded-2xl bg-[#130e24] border border-[#231a3d]">
-        {[
-          { id: 'keys', label: 'Keys & Epochs', icon: Key },
-          { id: 'issue', label: 'Issue Credential', icon: PlusCircle },
-          { id: 'issued', label: 'Issued Credentials', icon: FileText },
-          { id: 'batches', label: 'Batches & Anchors', icon: Layers },
-        ].map((tab) => {
+      <div role="tablist" className="flex max-w-full w-fit overflow-x-auto items-center p-1 rounded-2xl bg-[#130e24] border border-[#231a3d]">
+        {TABS.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as typeof activeTab)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all cursor-pointer ${
+              role="tab"
+              aria-selected={isActive}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex shrink-0 items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-medium whitespace-nowrap transition-all cursor-pointer ${
                 isActive
                   ? 'bg-[#231a3d] text-[#f0f7f7] shadow-xs'
                   : 'text-[#8ea5a8] hover:text-[#f0f7f7]'

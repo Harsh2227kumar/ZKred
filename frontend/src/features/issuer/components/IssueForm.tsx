@@ -14,6 +14,7 @@ import { useCredentialSchemas } from '@/api/queries/meta';
 import { useIssueCredential, useLookupWallet } from '@/api/queries/issuers';
 import { toUserMessage } from '@/api/client';
 import { Hex } from '@/components/common/Hex';
+import { ErrorState } from '@/components/common/ErrorState';
 import { hasAdminToken } from '@/lib/storage/session-token';
 import type { IssueCredentialIn, IssueCredentialOut } from '@/api/schemas';
 
@@ -28,7 +29,7 @@ export const IssueForm: React.FC<IssueFormProps> = ({
   onPromptAuth,
   onIssuedSuccess,
 }) => {
-  const { data: schemasData, isLoading: schemasLoading } = useCredentialSchemas();
+  const { data: schemasData, isLoading: schemasLoading, error: schemasError, refetch: refetchSchemas } = useCredentialSchemas();
   const issueMutation = useIssueCredential(issuerId);
 
   // Form State
@@ -100,6 +101,8 @@ export const IssueForm: React.FC<IssueFormProps> = ({
       </div>
     );
   }
+
+  if (schemasError) return <ErrorState error={schemasError} onRetry={() => refetchSchemas()} />;
 
   // Filter claim fields for dynamic rendering
   const claimFields = currentSchema?.fields?.filter((f) => f.source === 'claim') || [];

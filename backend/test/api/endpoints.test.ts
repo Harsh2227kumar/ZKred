@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import request from "supertest";
 import { describe, expect, it } from "vitest";
 import { createApp } from "../../src/app";
+import { config } from "../../src/config";
 
 const app = createApp();
 const api = "/api/v1";
@@ -28,6 +29,14 @@ describe("V1.1 / V1.2 endpoints", () => {
     await request(app).post(`${api}/issuers/${randomUUID()}/reissue`).send({}).expect(401);
     for (const path of ["steal-key", "forge", "verify-forged", "reset"]) await request(app).post(`${api}/attack/${path}`).send({}).expect(401);
     await request(app).get(`${api}/attack/state`).expect(401);
+  });
+
+  it("revoke rejects malformed issuer / credential ids with 422 before touching the DB", async () => {
+    const admin = { Authorization: `Bearer ${config.ISSUER_ADMIN_TOKEN}` };
+    for (const [issuer, credential] of [["not-a-uuid", randomUUID()], [randomUUID(), "1 OR 1=1"], [randomUUID(), hex32]]) {
+      const res = await request(app).post(`${api}/issuers/${issuer}/credentials/${encodeURIComponent(credential!)}/revoke`).set(admin).expect(422);
+      expect(res.body.error.code).toBe("VALIDATION_ERROR");
+    }
   });
 
   it("the OpenAPI document lists every path", async () => {

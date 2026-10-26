@@ -1,66 +1,70 @@
 // scripts/seed.ts
-// Automated, idempotent seed pipeline for ZKred (V1-S4).
-// Reads demo data exclusively from seed/*.json and config from scripts/config.ts.
-// Strictly calls the real REST API over HTTP — no direct database or ORM access.
+// Seed pipeline v2 (V1.2-S4). Recreates the demo state from seed/*.json through the real API only (FLOWS §5), and is
+// idempotent: issuers by did, verifiers by name, wallets by display_name, credentials by (issuer, type, wallet).
+//
+//   pnpm --filter scripts seed            "legacy" phase: issuers, verifiers, wallets and every legacy credential,
+//                                         issued and anchored now.
+//   pnpm --filter scripts seed:in-window  "in_window" phase: the credentials meant to fall inside the breach window,
+//                                         issued and anchored now. Run it right before the breach demo and at least
+//                                         BREACH_WINDOW_SECONDS after the legacy run (chain time decides, FLOWS §4).
+//
+// Wallets created by a run are claimed and backed up in the browser wallet's own backup format (encrypted with
+// SEED_WALLET_PASSPHRASE), and their wallet id + token are printed once so the demo laptop can "Restore" them.
 
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { config } from "./config";
-import { walletCrypto, verifyCredential } from "@zkred/zk-core";
+import { BACKUP_KDF_ITERATIONS, verifyCredential, walletCrypto, type SignedCredential } from "@zkred/zk-core";
+import { config, type SeedPhase } from "./config";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const ROOT_DIR = path.resolve(__dirname, "..");
-const SEED_DIR = path.join(ROOT_DIR, "seed");
+const SEED_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../seed");
+/** Version of the browser wallet's backup payload (frontend/src/lib/wallet-store.ts FullWalletBackupState). */
+const WALLET_BACKUP_VERSION = 1;
 
-// Types mirroring CONTRACTS.md
+// ---------------------------------------------------------------- seed files
+
 interface SeedIssuer {
   name: string;
   kind: "university" | "medical_council" | "government";
   did_suffix: string;
 }
-
 interface SeedHolder {
   display_name: string;
   full_name: string;
 }
-
 interface SeedCredential {
+  phase?: SeedPhase;
   issuer_did_suffix: string;
   credential_type: "Degree" | "MedicalLicense" | "GovernmentId";
   recipient_display_name: string;
   claims: Record<string, string | number>;
 }
-
 interface SeedVerifier {
   name: string;
 }
+
+function loadJson<T>(filename: string): T {
+  const file = path.join(SEED_DIR, filename);
+  if (!fs.existsSync(file)) throw new Error(`[seed] Missing seed file: ${file}`);
+  return JSON.parse(fs.readFileSync(file, "utf-8")) as T;
+}
+
+// ---------------------------------------------------------------- API (CONTRACTS §3)
 
 interface ApiIssuer {
   id: string;
   did: string;
   name: string;
-  kind: string;
-  keys: Array<{ key_id: string; public_key: string; status: string }>;
+  keys: { key_id: string; public_key: string; status: string }[];
 }
-
-interface ApiVerifier {
-  id: string;
-  name: string;
-  did: string;
-}
-
 interface ApiBatch {
   batch_id: string;
-  issuer_id: string;
   size: number;
   status: "open" | "anchored";
+  anchored_at: string | null;
 }
-
 interface ApiOffer {
   id: string;
-  wallet_id: string;
   issuer_id: string;
   credential_type: string;
   ephemeral_public_key: string;
@@ -68,346 +72,257 @@ interface ApiOffer {
   ciphertext: string;
   claimed_at: string | null;
 }
-
-function loadJson<T>(filename: string): T {
-  const filePath = path.join(SEED_DIR, filename);
-  if (!fs.existsSync(filePath)) {
-    throw new Error(`[seed] Missing required seed file: ${filePath}`);
-  }
-  return JSON.parse(fs.readFileSync(filePath, "utf-8")) as T;
+interface ApiIssued {
+  credential_type: string;
+  wallet_id: string;
 }
 
-async function apiFetch<T>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<{ ok: boolean; status: number; data?: T; error?: any }> {
-  const url = `${config.apiBaseUrl}${endpoint}`;
-  try {
-    const res = await fetch(url, options);
-    const json = await res.json().catch(() => null);
-    if (!res.ok) {
-      return { ok: false, status: res.status, error: json };
+class ApiError extends Error {
+  constructor(
+    readonly status: number,
+    readonly body: unknown,
+    what: string,
+  ) {
+    super(`${what} → HTTP ${status}: ${JSON.stringify(body)}`);
+  }
+}
+
+async function api<T>(method: string, endpoint: string, opts: { body?: unknown; token?: string } = {}): Promise<T> {
+  const headers: Record<string, string> = {};
+  if (opts.body !== undefined) headers["Content-Type"] = "application/json";
+  if (opts.token) headers.Authorization = `Bearer ${opts.token}`;
+  const res = await fetch(`${config.apiBaseUrl}${endpoint}`, {
+    method,
+    headers,
+    body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+  });
+  const json = (await res.json().catch(() => null)) as unknown;
+  if (!res.ok) throw new ApiError(res.status, json, `${method} ${endpoint}`);
+  return json as T;
+}
+const admin = { token: config.adminToken };
+
+/** Every page of a cursor-paginated list (CONTRACTS §1 lists). */
+async function listAll<T>(endpoint: string, token: string): Promise<T[]> {
+  const items: T[] = [];
+  let cursor: string | null = null;
+  do {
+    const page: { items: T[]; next_cursor: string | null } = await api("GET", `${endpoint}${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`, { token });
+    items.push(...page.items);
+    cursor = page.next_cursor;
+  } while (cursor);
+  return items;
+}
+
+// ---------------------------------------------------------------- phases
+
+async function checkHealth(): Promise<{ networkName: string; breachWindowSeconds: number }> {
+  const health = await api<{ status: string; db: string; chain: string; ai: string }>("GET", "/health");
+  if (health.db !== "ok" || health.chain !== "ok") {
+    throw new Error(`[seed] Backend not ready (db=${health.db}, chain=${health.chain}). Seeding needs both.`);
+  }
+  const chain = await api<{ network_name: string; breach_window_seconds: number }>("GET", "/meta/chain");
+  console.log(`  ✓ db ok, chain ok (${chain.network_name}), ai ${health.ai}`);
+  return { networkName: chain.network_name, breachWindowSeconds: chain.breach_window_seconds };
+}
+
+async function ensureIssuers(seed: SeedIssuer[], networkName: string): Promise<Map<string, ApiIssuer>> {
+  const existing = (await api<{ items: ApiIssuer[] }>("GET", "/issuers")).items;
+  const bySuffix = new Map<string, ApiIssuer>();
+  for (const s of seed) {
+    const found = existing.find((i) => i.did === `did:zkred:${s.did_suffix}`);
+    if (found) {
+      console.log(`  ✓ ${s.name} (${found.did})`);
+      bySuffix.set(s.did_suffix, found);
+      continue;
     }
-    return { ok: true, status: res.status, data: json as T };
-  } catch (err: any) {
-    return { ok: false, status: 0, error: err?.message || String(err) };
+    console.log(`  + Registering ${s.name} on ${networkName}…`);
+    bySuffix.set(s.did_suffix, await api<ApiIssuer>("POST", "/issuers", { body: s, ...admin }));
+  }
+  return bySuffix;
+}
+
+async function ensureVerifiers(seed: SeedVerifier[]): Promise<void> {
+  const existing = (await api<{ items: { name: string }[] }>("GET", "/verifiers")).items;
+  for (const v of seed) {
+    if (existing.some((e) => e.name === v.name)) {
+      console.log(`  ✓ ${v.name}`);
+      continue;
+    }
+    console.log(`  + Registering ${v.name}…`);
+    await api("POST", "/verifiers", { body: v });
   }
 }
+
+type PrivateKeyJwk = Awaited<ReturnType<typeof walletCrypto.generateWalletKeyPair>>["privateKeyJwk"];
+
+/** A wallet created by this run: only then do we hold its token and private key (the server never has them). */
+interface CreatedWallet {
+  token: string;
+  publicKeyB64: string;
+  privateKeyJwk: PrivateKeyJwk;
+}
+interface SeedWallet {
+  id: string;
+  displayName: string;
+  created: CreatedWallet | null;
+}
+
+async function ensureWallets(seed: SeedHolder[]): Promise<Map<string, SeedWallet>> {
+  const wallets = new Map<string, SeedWallet>();
+  for (const h of seed) {
+    try {
+      const found = await api<{ id: string }>("GET", `/wallets/lookup?display_name=${encodeURIComponent(h.display_name)}`);
+      console.log(`  ✓ ${h.display_name} (${h.full_name})`);
+      wallets.set(h.display_name, { id: found.id, displayName: h.display_name, created: null });
+    } catch (err) {
+      if (!(err instanceof ApiError && err.status === 404)) throw err;
+      console.log(`  + Creating wallet ${h.display_name} (${h.full_name}): P-256 key pair generated locally…`);
+      const keys = await walletCrypto.generateWalletKeyPair();
+      const out = await api<{ id: string; wallet_token: string }>("POST", "/wallets", {
+        body: { display_name: h.display_name, enc_public_key: keys.publicKeyB64 },
+      });
+      wallets.set(h.display_name, {
+        id: out.id,
+        displayName: h.display_name,
+        created: { token: out.wallet_token, publicKeyB64: keys.publicKeyB64, privateKeyJwk: keys.privateKeyJwk },
+      });
+    }
+  }
+  return wallets;
+}
+
+async function issueCredentials(
+  seed: SeedCredential[],
+  issuers: Map<string, ApiIssuer>,
+  wallets: Map<string, SeedWallet>,
+): Promise<{ issuerIds: Set<string>; holders: Set<string> }> {
+  const touched = { issuerIds: new Set<string>(), holders: new Set<string>() };
+  const issuedBy = new Map<string, Set<string>>();
+  for (const c of seed) {
+    const issuer = issuers.get(c.issuer_did_suffix);
+    const wallet = wallets.get(c.recipient_display_name);
+    if (!issuer) throw new Error(`[seed] credentials.json: unknown issuer did_suffix "${c.issuer_did_suffix}"`);
+    if (!wallet) throw new Error(`[seed] credentials.json: unknown holder "${c.recipient_display_name}"`);
+    if (!issuedBy.has(issuer.id)) {
+      const records = await listAll<ApiIssued>(`/issuers/${issuer.id}/credentials`, config.adminToken);
+      issuedBy.set(issuer.id, new Set(records.map((r) => `${r.credential_type}|${r.wallet_id}`)));
+    }
+    const key = `${c.credential_type}|${wallet.id}`;
+    if (issuedBy.get(issuer.id)!.has(key)) {
+      console.log(`  ✓ ${c.credential_type} from ${issuer.name} → ${c.recipient_display_name}`);
+      continue;
+    }
+    console.log(`  + Signing ${c.credential_type} from ${issuer.name} → ${c.recipient_display_name}…`);
+    await api("POST", `/issuers/${issuer.id}/credentials`, {
+      body: { credential_type: c.credential_type, wallet_id: wallet.id, claims: c.claims },
+      ...admin,
+    });
+    issuedBy.get(issuer.id)!.add(key);
+    touched.issuerIds.add(issuer.id);
+    touched.holders.add(c.recipient_display_name);
+  }
+  return touched;
+}
+
+/** Anchors every non-empty open batch of these issuers; the block time becomes their trusted issuance time. */
+async function anchorOpenBatches(issuerIds: Iterable<string>, issuers: Map<string, ApiIssuer>): Promise<string[]> {
+  const anchoredAt: string[] = [];
+  for (const id of issuerIds) {
+    const name = [...issuers.values()].find((i) => i.id === id)?.name ?? id;
+    const { items } = await api<{ items: ApiBatch[] }>("GET", `/issuers/${id}/batches`);
+    for (const b of items.filter((x) => x.status === "open" && x.size > 0)) {
+      const out = await api<ApiBatch & { tx_hash: string }>("POST", `/issuers/${id}/batches/${b.batch_id}/anchor`, admin);
+      console.log(`  ✓ ${name}: batch of ${b.size} anchored at ${out.anchored_at} (tx ${out.tx_hash})`);
+      if (out.anchored_at) anchoredAt.push(out.anchored_at);
+    }
+  }
+  return anchoredAt;
+}
+
+/**
+ * For a wallet created by this run: decrypt every unclaimed offer, keep it only if its BBS signature verifies under
+ * the issuer's published key, claim it, and write the encrypted backup the browser wallet restores from.
+ */
+async function claimAndBackUp(wallet: SeedWallet & { created: CreatedWallet }): Promise<number> {
+  const auth = { token: wallet.created.token };
+  const offers = (await api<{ items: ApiOffer[] }>("GET", `/wallets/${wallet.id}/offers`, auth)).items;
+  const issuers = (await api<{ items: ApiIssuer[] }>("GET", "/issuers")).items;
+  const credentials: SignedCredential[] = [];
+  for (const offer of offers.filter((o) => !o.claimed_at)) {
+    const cred = await walletCrypto.decryptOffer(wallet.created.privateKeyJwk, offer);
+    const publicKey = issuers.find((i) => i.id === offer.issuer_id)?.keys.find((k) => k.key_id === cred.key_id)?.public_key;
+    if (!publicKey || !(await verifyCredential(cred, new Uint8Array(Buffer.from(publicKey, "base64url"))))) {
+      throw new Error(`[seed] Offer ${offer.id} for ${wallet.displayName} does not verify under its issuer's published key`);
+    }
+    await api("POST", `/wallets/${wallet.id}/offers/${offer.id}/claim`, auth);
+    credentials.push(cred);
+  }
+  const state = {
+    version: WALLET_BACKUP_VERSION,
+    metadata: { id: wallet.id, display_name: wallet.displayName, wallet_token: wallet.created.token },
+    keypair: { privateKeyJwk: wallet.created.privateKeyJwk, publicKeyB64: wallet.created.publicKeyB64 },
+    credentials,
+    replaced_commitments: [],
+    exported_at: new Date().toISOString(),
+  };
+  const sealed = await walletCrypto.encryptBackup(config.walletPassphrase, state, BACKUP_KDF_ITERATIONS);
+  await api("PUT", `/wallets/${wallet.id}/backup`, { body: { ...sealed, version: WALLET_BACKUP_VERSION }, ...auth });
+  return credentials.length;
+}
+
+// ---------------------------------------------------------------- main
 
 async function main() {
-  console.log("==========================================================");
-  console.log(" ZKred — Automated Idempotent Seed Pipeline v1");
-  console.log("==========================================================");
-  console.log(`[seed] Target API Base: ${config.apiBaseUrl}`);
+  const phase = config.phase;
+  console.log(`ZKred seed v2 — phase "${phase}" → ${config.apiBaseUrl}\n`);
 
-  // Phase 1: Health Check
-  console.log("\n[Phase 1] Verifying backend health & connectivity...");
-  const healthRes = await apiFetch<{ status: string; db: string; chain: string }>("/health");
-  if (!healthRes.ok) {
-    console.warn(`[seed] Warning: Health check returned status ${healthRes.status}. Details:`, healthRes.error);
-    console.warn("[seed] Proceeding with seeding attempts...");
-  } else {
-    console.log(`[seed] System healthy: db=${healthRes.data?.db}, chain=${healthRes.data?.chain}`);
-  }
+  console.log("[1/6] Backend health");
+  const { networkName, breachWindowSeconds } = await checkHealth();
 
-  // Phase 2: Seed Issuers
-  console.log("\n[Phase 2] Ensuring institutional issuers are registered on-chain...");
-  const seedIssuers = loadJson<SeedIssuer[]>("issuers.json");
-  const issuersMap = new Map<string, ApiIssuer>(); // did_suffix -> ApiIssuer
+  console.log("\n[2/6] Issuers");
+  const issuers = await ensureIssuers(loadJson<SeedIssuer[]>("issuers.json"), networkName);
 
-  const existingIssuersRes = await apiFetch<{ items: ApiIssuer[] }>("/issuers");
-  const existingIssuers = existingIssuersRes.ok && existingIssuersRes.data ? existingIssuersRes.data.items : [];
+  console.log("\n[3/6] Verifiers");
+  await ensureVerifiers(loadJson<SeedVerifier[]>("verifiers.json"));
 
-  for (const exp of seedIssuers) {
-    const targetDid = `did:zkred:${exp.did_suffix}`;
-    const found = existingIssuers.find((i) => i.did === targetDid || i.name === exp.name);
+  console.log("\n[4/6] Holder wallets");
+  const wallets = await ensureWallets(loadJson<SeedHolder[]>("holders.json"));
 
-    if (found) {
-      console.log(`  ✓ Issuer exists: ${exp.name} (${targetDid}) -> id: ${found.id}`);
-      issuersMap.set(exp.did_suffix, found);
-    } else {
-      console.log(`  + Registering issuer on Base Sepolia: ${exp.name} (${targetDid})...`);
-      const createRes = await apiFetch<ApiIssuer>("/issuers", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${config.adminToken}`,
-          "X-Issuer-Admin-Token": config.adminToken,
-        },
-        body: JSON.stringify({
-          name: exp.name,
-          kind: exp.kind,
-          did_suffix: exp.did_suffix,
-        }),
-      });
+  console.log(`\n[5/6] ${phase} credentials`);
+  const entries = loadJson<SeedCredential[]>("credentials.json").filter((c) => (c.phase ?? "legacy") === phase);
+  const touched = await issueCredentials(entries, issuers, wallets);
+  const anchoredAt = await anchorOpenBatches(touched.issuerIds, issuers);
+  if (touched.issuerIds.size === 0) console.log("  ✓ nothing new to issue or anchor");
 
-      if (createRes.ok && createRes.data) {
-        console.log(`    Created issuer id: ${createRes.data.id}`);
-        issuersMap.set(exp.did_suffix, createRes.data);
-      } else {
-        console.warn(`    Failed to register issuer ${exp.name}:`, createRes.error);
-      }
+  console.log("\n[6/6] Claim + encrypted backup (wallets created in this run)");
+  const created = [...wallets.values()].filter((w): w is SeedWallet & { created: CreatedWallet } => w.created !== null);
+  for (const w of created) console.log(`  ✓ ${w.displayName}: ${await claimAndBackUp(w)} credential(s) claimed, backup stored`);
+  for (const w of wallets.values()) {
+    if (!w.created && touched.holders.has(w.displayName)) {
+      console.log(`  · ${w.displayName} existed before this run: claim its new offer(s) in the browser wallet inbox`);
     }
   }
+  if (!created.length && !touched.holders.size) console.log("  ✓ nothing to claim");
 
-  // Phase 3: Seed Verifiers
-  console.log("\n[Phase 3] Ensuring verifier boards are registered...");
-  const seedVerifiers = loadJson<SeedVerifier[]>("verifiers.json");
-  const existingVerifiersRes = await apiFetch<{ items: ApiVerifier[] }>("/verifiers");
-  const existingVerifiers = existingVerifiersRes.ok && existingVerifiersRes.data ? existingVerifiersRes.data.items : [];
-
-  for (const v of seedVerifiers) {
-    const found = existingVerifiers.find((item) => item.name === v.name);
-    if (found) {
-      console.log(`  ✓ Verifier exists: ${v.name} -> id: ${found.id}`);
-    } else {
-      console.log(`  + Registering verifier: ${v.name}...`);
-      const createRes = await apiFetch<ApiVerifier>("/verifiers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: v.name }),
-      });
-
-      if (createRes.ok && createRes.data) {
-        console.log(`    Created verifier id: ${createRes.data.id}`);
-      } else {
-        console.warn(`    Could not register verifier (endpoint may be staged in V1-H2):`, createRes.error?.error?.message || createRes.error);
-      }
-    }
+  console.log("\nDone.");
+  if (created.length) {
+    console.log("\nRestore these wallets in the browser (Holder Wallet → Restore), passphrase = SEED_WALLET_PASSPHRASE.");
+    console.log("Each token is shown only now; keep it private:");
+    for (const w of created) console.log(`  ${w.displayName.padEnd(8)} wallet id ${w.id}  token ${w.created.token}`);
   }
-
-  // Phase 4: Seed Holder Wallets
-  console.log("\n[Phase 4] Ensuring holder wallets exist...");
-  const seedHolders = loadJson<SeedHolder[]>("holders.json");
-  const holderWallets = new Map<
-    string,
-    { id: string; wallet_token?: string; privateKeyJwk?: any; publicKeyB64?: string }
-  >();
-
-  for (const holder of seedHolders) {
-    const lookupRes = await apiFetch<{ id: string; display_name: string; enc_public_key: string }>(
-      `/wallets/lookup?display_name=${encodeURIComponent(holder.display_name)}`
+  if (phase === "legacy" && anchoredAt.length) {
+    console.log(
+      `\nLegacy batches anchored (chain time ${anchoredAt.sort()[anchoredAt.length - 1]}). For the breach demo, run ` +
+        `\`pnpm --filter scripts seed:in-window\` at least ${breachWindowSeconds} s (BREACH_WINDOW_SECONDS) later.`,
     );
-
-    if (lookupRes.ok && lookupRes.data) {
-      console.log(`  ✓ Holder wallet exists: ${holder.display_name} -> id: ${lookupRes.data.id}`);
-      holderWallets.set(holder.display_name, {
-        id: lookupRes.data.id,
-        publicKeyB64: lookupRes.data.enc_public_key,
-      });
-    } else {
-      console.log(`  + Generating P-256 keypair for holder: ${holder.display_name} (${holder.full_name})...`);
-      const keypair = await walletCrypto.generateWalletKeyPair();
-
-      const createRes = await apiFetch<{ id: string; display_name: string; wallet_token: string }>("/wallets", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          display_name: holder.display_name,
-          enc_public_key: keypair.publicKeyB64,
-        }),
-      });
-
-      if (createRes.ok && createRes.data) {
-        console.log(`    Created wallet id: ${createRes.data.id}`);
-        holderWallets.set(holder.display_name, {
-          id: createRes.data.id,
-          wallet_token: createRes.data.wallet_token,
-          privateKeyJwk: keypair.privateKeyJwk,
-          publicKeyB64: keypair.publicKeyB64,
-        });
-      } else {
-        console.warn(`    Failed to create wallet for ${holder.display_name}:`, createRes.error);
-      }
-    }
   }
-
-  // Phase 5: Seed Credentials & Staged Offers
-  console.log("\n[Phase 5] Issuing verifiable credentials to holders...");
-  const seedCreds = loadJson<SeedCredential[]>("credentials.json");
-
-  for (const cred of seedCreds) {
-    const issuer = issuersMap.get(cred.issuer_did_suffix);
-    const holder = holderWallets.get(cred.recipient_display_name);
-
-    if (!issuer) {
-      console.warn(`  - Skipping ${cred.credential_type}: issuer did:zkred:${cred.issuer_did_suffix} not found`);
-      continue;
-    }
-    if (!holder) {
-      console.warn(`  - Skipping ${cred.credential_type}: holder ${cred.recipient_display_name} not available`);
-      continue;
-    }
-
-    // Check existing issued credentials for this wallet
-    const checkRes = await apiFetch<{ items: Array<{ credential_type: string; wallet_id: string }> }>(
-      `/issuers/${issuer.id}/credentials`,
-      {
-        headers: {
-          "Authorization": `Bearer ${config.adminToken}`,
-          "X-Issuer-Admin-Token": config.adminToken,
-        },
-      }
-    );
-    const existing = checkRes.ok && checkRes.data ? checkRes.data.items : [];
-    const alreadyIssued = existing.some(
-      (c) => c.credential_type === cred.credential_type && c.wallet_id === holder.id
-    );
-
-    if (alreadyIssued) {
-      console.log(`  ✓ ${cred.credential_type} already issued by ${issuer.name} to ${cred.recipient_display_name}`);
-      continue;
-    }
-
-    console.log(`  + Signing ${cred.credential_type} for ${cred.recipient_display_name} via ${issuer.name}...`);
-    const issueRes = await apiFetch<{ credential_id: string; offer_id: string; batch_id: string }>(
-      `/issuers/${issuer.id}/credentials`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${config.adminToken}`,
-          "X-Issuer-Admin-Token": config.adminToken,
-        },
-        body: JSON.stringify({
-          wallet_id: holder.id,
-          credential_type: cred.credential_type,
-          claims: cred.claims,
-        }),
-      }
-    );
-
-    if (issueRes.ok && issueRes.data) {
-      console.log(
-        `    Issued: cred_id=${issueRes.data.credential_id}, offer_id=${issueRes.data.offer_id}, batch=${issueRes.data.batch_id}`
-      );
-    } else {
-      console.warn(`    Failed to issue ${cred.credential_type}:`, issueRes.error?.error?.message || issueRes.error);
-    }
+  if (phase === "in_window" && anchoredAt.length) {
+    console.log(`\nIn-window batches anchored. Report the compromise within ${breachWindowSeconds} s so they fall inside the window.`);
   }
-
-  // Phase 6: Anchor Open Issuance Batches on Base Sepolia
-  console.log("\n[Phase 6] Anchoring open issuance batches on Base Sepolia...");
-  for (const [suffix, issuer] of issuersMap.entries()) {
-    const batchesRes = await apiFetch<{ items: ApiBatch[] }>(`/issuers/${issuer.id}/batches`);
-    if (!batchesRes.ok || !batchesRes.data) continue;
-
-    const openBatches = batchesRes.data.items.filter((b) => b.status === "open" && b.size > 0);
-    for (const batch of openBatches) {
-      console.log(`  + Anchoring batch ${batch.batch_id} (size: ${batch.size}) for ${issuer.name}...`);
-      const anchorRes = await apiFetch<{ batch_id: string; root: string; tx_hash: string }>(
-        `/issuers/${issuer.id}/batches/${batch.batch_id}/anchor`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${config.adminToken}`,
-            "X-Issuer-Admin-Token": config.adminToken,
-          },
-        }
-      );
-
-      if (anchorRes.ok && anchorRes.data) {
-        console.log(`    ✓ Anchored on-chain: tx=${anchorRes.data.tx_hash}, root=${anchorRes.data.root}`);
-      } else {
-        console.warn(`    Anchor failed or pending:`, anchorRes.error?.error?.message || anchorRes.error);
-      }
-    }
-  }
-
-  // Phase 7: Claim Staged Offers for In-Session Wallets
-  console.log("\n[Phase 7] Decrypting and claiming credential offers...");
-  for (const [displayName, holder] of holderWallets.entries()) {
-    if (!holder.wallet_token || !holder.privateKeyJwk) {
-      console.log(`  - Holder ${displayName} is an existing wallet. Offers can be claimed directly in browser wallet.`);
-      continue;
-    }
-
-    const offersRes = await apiFetch<{ items: ApiOffer[] }>(`/wallets/${holder.id}/offers`, {
-      headers: { Authorization: `Bearer ${holder.wallet_token}` },
-    });
-
-    if (!offersRes.ok || !offersRes.data) continue;
-
-    const unclaimed = offersRes.data.items.filter((o) => !o.claimed_at);
-    const claimedCreds: any[] = [];
-
-    for (const offer of unclaimed) {
-      console.log(`  + Decrypting offer for ${offer.credential_type} (${offer.id})...`);
-      try {
-        const decryptedCred = await walletCrypto.decryptOffer(holder.privateKeyJwk, {
-          ephemeral_public_key: offer.ephemeral_public_key,
-          iv: offer.iv,
-          ciphertext: offer.ciphertext,
-        });
-
-        // Verify signature against issuer public key
-        const issuerRes = await apiFetch<ApiIssuer>(`/issuers/${offer.issuer_id}`);
-        const issuerKey = issuerRes.data?.keys.find((k) => k.key_id === decryptedCred.key_id);
-
-        if (issuerKey) {
-          const pubKeyBytes = Buffer.from(issuerKey.public_key, "base64url");
-          const verified = await verifyCredential(decryptedCred, pubKeyBytes);
-          if (verified) {
-            console.log(`    ✓ Verified BBS+ signature from issuer ${offer.issuer_id}`);
-          }
-        }
-
-        const claimRes = await apiFetch<{ status: string }>(`/wallets/${holder.id}/offers/${offer.id}/claim`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${holder.wallet_token}` },
-        });
-
-        if (claimRes.ok) {
-          console.log(`    ✓ Claimed offer ${offer.id}`);
-          claimedCreds.push(decryptedCred);
-        }
-      } catch (err: any) {
-        console.warn(`    Failed to decrypt/claim offer ${offer.id}:`, err?.message || err);
-      }
-    }
-
-    // Phase 8: Encrypted Backup
-    if (claimedCreds.length > 0) {
-      console.log(`  + Syncing client-side encrypted backup for ${displayName}...`);
-      try {
-        const backupPayload = await walletCrypto.encryptBackup(
-          config.walletPassphrase,
-          {
-            wallet_id: holder.id,
-            display_name: displayName,
-            credentials: claimedCreds,
-          },
-          100000
-        );
-
-        const backupRes = await apiFetch<{ updated_at: string }>(`/wallets/${holder.id}/backup`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${holder.wallet_token}`,
-          },
-          body: JSON.stringify({
-            ...backupPayload,
-            version: 1,
-          }),
-        });
-
-        if (backupRes.ok) {
-          console.log(`    ✓ Encrypted backup stored securely at ${backupRes.data?.updated_at}`);
-        }
-      } catch (err: any) {
-        console.warn(`    Failed to create encrypted backup:`, err?.message || err);
-      }
-    }
-  }
-
-  console.log("\n==========================================================");
-  console.log(" Seed Pipeline Complete — Idempotent Verification Passed!");
-  console.log("==========================================================");
 }
 
 main().catch((err) => {
-  console.error("[seed] Fatal error in seeding pipeline:", err);
+  console.error(err instanceof Error ? err.message : err);
   process.exit(1);
 });
