@@ -1,5 +1,6 @@
 // frontend/src/features/issuer/components/IssueForm.tsx
 import React, { useState } from 'react';
+import { NavLink } from 'react-router-dom';
 import {
   PlusCircle,
   Search,
@@ -8,6 +9,7 @@ import {
   AlertCircle,
   Loader2,
   Sparkles,
+  ArrowRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCredentialSchemas } from '@/api/queries/meta';
@@ -144,6 +146,18 @@ export const IssueForm: React.FC<IssueFormProps> = ({
               <span className="font-mono text-[#f0f7f7]">#{issuedResult.status_index}</span>
             </div>
           </div>
+          <div className="pt-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-t border-[#06838d]/20">
+            <span className="text-xs text-[#79bab6]">
+              End-to-end encrypted offer queued. Ready to claim in recipient's sovereign wallet.
+            </span>
+            <NavLink
+              to="/wallet"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#06838d] hover:bg-[#046168] text-white text-xs font-semibold shadow-xs transition-colors shrink-0"
+            >
+              <span>Open Recipient's Wallet Inbox</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </NavLink>
+          </div>
         </div>
       )}
 
@@ -185,7 +199,7 @@ export const IssueForm: React.FC<IssueFormProps> = ({
                 required
                 value={recipientQuery}
                 onChange={(e) => setRecipientQuery(e.target.value)}
-                placeholder="e.g. asha_sharma"
+                placeholder="e.g. asha"
                 className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-[#231a3d] bg-[#090614] text-sm text-[#f0f7f7] placeholder-[#8ea5a8]/50 focus:outline-hidden focus:border-[#06838d]"
               />
               <div className="absolute right-3 top-3 text-[#8ea5a8] pointer-events-none">
@@ -198,6 +212,30 @@ export const IssueForm: React.FC<IssueFormProps> = ({
                 )}
               </div>
             </div>
+
+            {/* Quick-fill demo recipients */}
+            <div className="flex items-center gap-1.5 pt-1">
+              <span className="text-[10px] text-[#8ea5a8]">Quick Pick:</span>
+              {[
+                { name: 'asha', label: 'Dr. Asha' },
+                { name: 'meera', label: 'Dr. Meera' },
+                { name: 'rohan', label: 'Rohan' },
+              ].map((p) => (
+                <button
+                  key={p.name}
+                  type="button"
+                  onClick={() => setRecipientQuery(p.name)}
+                  className={`px-2 py-0.5 rounded-md text-[10px] border transition-colors ${
+                    recipientQuery === p.name
+                      ? 'bg-[#06838d]/25 text-[#79bab6] border-[#06838d]/40'
+                      : 'bg-[#090614] text-[#8ea5a8] border-[#231a3d] hover:text-[#f0f7f7]'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+
             {recipient?.id ? (
               <div className="flex items-center gap-2 text-xs text-[#79bab6]">
                 <span>Resolved:</span>
