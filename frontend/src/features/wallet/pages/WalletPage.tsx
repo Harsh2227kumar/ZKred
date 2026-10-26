@@ -21,6 +21,7 @@ import {
   markCredentialReplaced,
   removeStoredCredential,
   clearWalletStore,
+  isWalletLocked,
   type WalletMetadata,
 } from '@/lib/wallet-store';
 import type { SignedCredential } from '@/lib/wallet-crypto';
@@ -28,6 +29,8 @@ import { WalletSetup } from '../components/WalletSetup';
 import { WalletInbox } from '../components/WalletInbox';
 import { CredentialList } from '../components/CredentialList';
 import { BackupModal } from '../components/BackupModal';
+import { DeviceUnlock } from '../components/DeviceUnlock';
+import { BiometricLockCard } from '../components/BiometricLockCard';
 import { syncEncryptedBackup } from '../backup-sync';
 import { credentialKey, useCredentialStatuses } from '../hooks/useCredentialStatus';
 
@@ -44,6 +47,7 @@ export const WalletPage: React.FC = () => {
   const [refreshingKey, setRefreshingKey] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
   const [showBackupModal, setShowBackupModal] = useState(false);
+  const [locked, setLocked] = useState(false);
 
   const queryClient = useQueryClient();
   const { data: issuersData } = useIssuers();
@@ -52,6 +56,13 @@ export const WalletPage: React.FC = () => {
 
   const loadLocalWallet = useCallback(async () => {
     try {
+      if (await isWalletLocked()) {
+        setLocked(true);
+        setMeta(null);
+        setCredentials([]);
+        return;
+      }
+      setLocked(false);
       const storedMeta = await getWalletMetadata();
       setMeta(storedMeta);
       if (storedMeta) {
@@ -123,6 +134,7 @@ export const WalletPage: React.FC = () => {
       )
     ) {
       await clearWalletStore();
+      setLocked(false);
       setMeta(null);
       setCredentials([]);
       toast.success('Wallet removed from device memory.');
@@ -177,7 +189,9 @@ export const WalletPage: React.FC = () => {
         )}
       </div>
 
-      {!meta ? (
+      {locked ? (
+        <DeviceUnlock onUnlocked={loadLocalWallet} onForget={handleForgetWallet} />
+      ) : !meta ? (
         <WalletSetup onWalletReady={loadLocalWallet} />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -227,6 +241,8 @@ export const WalletPage: React.FC = () => {
               onClaimSuccess={loadLocalWallet}
               onRequirePassphrase={() => setShowBackupModal(true)}
             />
+
+            <BiometricLockCard displayName={meta.display_name} onLocked={loadLocalWallet} />
 
             {/* Privacy Guarantee Card */}
             <div className="p-5 rounded-3xl border border-[#231a3d] bg-[#130e24] space-y-3">
