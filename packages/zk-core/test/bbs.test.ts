@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import {
   CREDENTIAL_LAYOUTS,
   ZkCoreError,
+  credentialDigest,
   deriveDisclosure,
   encodeMessages,
   generateIssuerKeyPair,
@@ -83,5 +84,27 @@ describe("bbs", () => {
 
   it("refuses to reveal a field that is not in the layout", async () => {
     await expect(deriveDisclosure(cred, keys.publicKey, ["degree_name"], nonce())).rejects.toThrow(/not in the GovernmentId layout/);
+  });
+
+  it("credentialDigest fingerprints exactly what was signed: a stolen-key forgery over the same serial differs", async () => {
+    const digest = credentialDigest(cred);
+    expect(digest).toMatch(/^0x[0-9a-f]{64}$/);
+    expect(credentialDigest({ ...cred, values: { ...cred.values } })).toBe(digest);
+    // Same key, same commitment (serial), different claims: the attacker's re-signed copy of an honest credential.
+    const forged = await signCredential({
+      secretKey: keys.secretKey,
+      publicKey: keys.publicKey,
+      type: cred.type,
+      values: { ...cred.values, nationality: randomText("nat") },
+    });
+    expect(await verifyCredential(forged, keys.publicKey)).toBe(true);
+    expect(forged.values.commitment).toBe(cred.values.commitment);
+    expect(credentialDigest(forged)).not.toBe(digest);
+    // Deterministic BBS: re-signing the identical values is the identical credential.
+    const again = await signCredential({ secretKey: keys.secretKey, publicKey: keys.publicKey, type: cred.type, values: cred.values });
+    expect(credentialDigest(again)).toBe(digest);
+    // Domain-separated from the other keccak hashes, and fails loudly on a signature that isn't base64url.
+    expect(digest).not.toBe(pubKeyHash(keys.publicKey));
+    expect(() => credentialDigest({ ...cred, signature: "not base64url!" })).toThrow(ZkCoreError);
   });
 });

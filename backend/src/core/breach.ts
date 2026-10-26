@@ -55,7 +55,8 @@ export async function reportCompromise(
 
     const active = (await repo.findIssuer(issuerId))?.keys.find((k) => k.status === "active");
     if (!active) throw new AppError("CONFLICT", "Issuer has no active key after the compromise report");
-    const batches = await issuanceRepo.listBatchesByKey(keyId);
+    // An empty batch (an issuance that failed after opening it) holds no credential: nothing to report.
+    const batches = (await issuanceRepo.listBatchesByKey(keyId)).filter((b) => b.leaves.length > 0);
     return {
       key_id: keyId,
       compromised_from: compromisedFrom.toISOString(),

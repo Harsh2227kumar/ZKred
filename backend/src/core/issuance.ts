@@ -4,6 +4,7 @@
 import { randomBytes } from "node:crypto";
 import {
   CREDENTIAL_LAYOUTS,
+  credentialDigest,
   merkleRoot,
   signCredential,
   statusList,
@@ -132,6 +133,7 @@ async function signAndOffer(
       commitment,
       issuedAt,
       reissuedFrom,
+      credentialDigest: credentialDigest(credential),
     },
     {
       walletId,
@@ -216,9 +218,10 @@ function needsReissue(batch: repo.BatchRow, key: { status: string; compromisedFr
 
 /**
  * Re-issues a holder's credential under the issuer's current key (breach recovery). The old credential must carry a
- * valid signature by one of this issuer's keys AND its commitment must be in the issuer's own records for this
- * wallet, unrevoked and not yet re-issued: forgeries made with a stolen key are not in those records, so they can't
- * be laundered into fresh credentials.
+ * valid signature by one of this issuer's keys, its commitment must be in the issuer's own records for this wallet,
+ * unrevoked and not yet re-issued, AND it must be byte-for-byte the credential the issuer signed (its recorded
+ * digest). Forgeries made with a stolen key are not in those records; one that reuses an honest holder's serial with
+ * other claims has a different digest. Either way nothing forged can be laundered into a fresh credential.
  */
 export async function reissue(issuerId: string, input: ReissueIn): Promise<{ offer_id: string }> {
   const old = input.old_credential as SignedCredential;
@@ -232,6 +235,8 @@ export async function reissue(issuerId: string, input: ReissueIn): Promise<{ off
 
     const record = await repo.findIssuedByCommitment(old.values.commitment ?? "");
     if (!record || record.issuerId !== issuerId || record.keyId !== old.key_id) throw refused("not in the issuer's records");
+    if (!record.credentialDigest) throw refused("issued before credential digests were recorded; ask the issuer to re-issue it");
+    if (record.credentialDigest !== credentialDigest(old)) throw refused("not the credential this issuer signed (claims differ)");
     if (record.walletId !== input.wallet_id) throw refused("issued to another wallet");
     if (record.revokedAt) throw refused("revoked");
     if (await repo.hasReissue(record.id)) throw new AppError("CONFLICT", "This credential was already re-issued");
