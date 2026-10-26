@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM"],
+    // No ambient Node types: src/ must stay browser-safe. Tests that need Node opt in with /// <reference types="node" />.
+    "types": [],
+    "noEmit": true
+  },
+  "include": ["src", "test"]
+}

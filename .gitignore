@@ -10,6 +10,7 @@ coverage/
 *.log
 .DS_Store
 # hardhat
+contracts/.env
 contracts/artifacts/
 contracts/cache/
 contracts/typechain-types/
@@ -20,3 +21,6 @@ circuits/tmp/
 .vscode/
 .idea/
 frontend/public/zk/
+contracts/types/
+contracts/deployments/hardhatMainnet.json
+contracts/deployments/localhost.json

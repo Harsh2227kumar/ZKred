@@ -1,0 +1,45 @@
+# ========================================================
+# ZKred Caddyfile — Reverse Proxy, SSL & Static Asset Server
+# Conforms to CONTRACTS.md §6 & VERSION-PLAN.md V0-S2
+# ========================================================
+
+{
+    admin off
+}
+
+# Configured domain via env or localhost fallback
+{$DOMAIN:localhost} {
+    encode gzip zstd
+
+    # Security Headers
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+
+    # Zero-Knowledge Circuit Artifacts (.wasm, .zkey, vkey.json)
+    handle /zk/* {
+        uri strip_prefix /zk
+        root * /srv/zk
+        file_server
+        header Access-Control-Allow-Origin "*"
+        header Access-Control-Allow-Methods "GET, OPTIONS"
+        header Access-Control-Allow-Headers "*"
+    }
+
+    # Express API Proxy
+    handle /api/* {
+        reverse_proxy backend:8080 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+        }
+    }
+
+    # Frontend SPA Fallback Handler
+    handle {
+        root * /srv/frontend
+        try_files {path} /index.html
+        file_server
+    }
+}

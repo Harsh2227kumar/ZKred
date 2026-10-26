@@ -1,0 +1,22 @@
+[
+  {
+    "name": "All India Institute of Medical Sciences, Nagpur",
+    "kind": "university",
+    "did_suffix": "aiimsn"
+  },
+  {
+    "name": "Indian Institute of Information Technology, Nagpur",
+    "kind": "university",
+    "did_suffix": "iiitn"
+  },
+  {
+    "name": "Maharashtra Medical Council",
+    "kind": "medical_council",
+    "did_suffix": "mmc"
+  },
+  {
+    "name": "Unique Identification Authority of India",
+    "kind": "government",
+    "did_suffix": "uidai"
+  }
+]

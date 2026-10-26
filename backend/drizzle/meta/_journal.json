@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1792924415756,
+      "tag": "0000_brown_ego",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792931289240,
+      "tag": "0001_integrity_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792946726605,
+      "tag": "0002_wallet_token_hash_index",
+      "breakpoints": true
+    }
+  ]
+}

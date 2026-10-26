@@ -1,0 +1,17 @@
+{
+  "name": "circuits",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "setup:keys": "bash build.sh",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "circom2": "^0.2.23",
+    "circomlib": "^2.0.5",
+    "circomlibjs": "^0.1.7",
+    "snarkjs": "^0.7.6",
+    "vitest": "^5.0.5"
+  }
+}

@@ -3,8 +3,8 @@
 **Role:** Frontend · DevOps (Docker, EC2, Caddy, Bedrock access) · seed pipeline · QA · docs · pitch
 **Owns:** `frontend/`, `infra/`, `docker-compose.yml`, `scripts/`, `seed/`, `docs/`, `.github/`, `README.md`, `*.env.example`
 **AI tools:** Antigravity / opencode (free models). Always paste the task ID + its numbered steps from `md/VERSION-PLAN.md`; never let the agent write crypto.
-**Current branch:** `<branch>`
-**Current task:** `<task ID from VERSION-PLAN.md>`
+**Current branch:** `sparsh/V1.1-S4-qa-pass1`
+**Current task:** `V1.1-S4` (Deploy + QA pass #1 on EC2: run the demo flow, log bugs under 'Requests to others')
 
 > Only SPARSH (and SPARSH's AI agent) edits this file. Append; don't rewrite history.
 > Read the bottom of this file aloud at every sync.
@@ -15,11 +15,22 @@
 
 | Task ID | Task | Status | PR |
 |---|---|---|---|
-| V0-S1 | Frontend scaffold | TODO | |
-| V0-S2 | docker-compose + Dockerfiles + Caddyfile + .env.examples | TODO | |
-| V0-S3 | GitHub repo settings, CODEOWNERS handles | TODO | |
-| V0-S4 | EC2 deploy hello-world | TODO | |
-| V0-S5 | Bedrock model access + credentials | TODO | |
+| V0-S0 | Scope freeze & environment templates | DONE | #8 |
+| V0-S1 | Frontend scaffold | DONE | #10, #24 |
+| V0-S2 | docker-compose + Dockerfiles + Caddyfile + .env.examples | DONE | #11 |
+| V0-S3 | GitHub repo settings, CODEOWNERS handles | DONE | #12 |
+| V0-S4 | EC2 deploy hello-world | IN PROGRESS: scripts merged (#13); live URL not up yet | #13 |
+| V0-S5 | Bedrock model access + credentials | IN PROGRESS: config merged (#14, #15); `/health` still shows `ai: down` | #14 |
+| V0-S6 | gen:api (openapi-typescript → src/api/types.ts) | DONE | #16 |
+| V1-S1 | Issuer console (real API & Base Sepolia) | DONE | #26 |
+| V1-S2 | Student Wallet (setup, inbox, credentials, backup) | DONE | #27 |
+| V1-S3 | Verifier portal (verifier create, manual policy builder, polling) | DONE | #28 |
+| V1-S4 | Seed pipeline v1 (seed/*.json, scripts/seed.ts, idempotent demo state) | DONE | #30 |
+| V1-S5 | Wallet respond page shell (presentation request, consent tiers, credential matching) | DONE | #31 |
+| V1.1-S1 | Live in-browser ZK presentation prover & submission flow | DONE | #33 |
+| V1.1-S2 | Verifier Result Page: eval chain visualizer, diagnostic error mapping & privacy panel | DONE | #34 |
+| V1.1-S3 | NL parse UX: readable chips, minimisation notes, POLICY_AMBIGUOUS questions, edit-and-retry | DONE | #35 |
+| V1.1-S4 | Deploy + QA pass #1 on EC2 & end-to-end demo flow audit | DONE | #36 |
 
 ## Blocked on
 
@@ -45,7 +56,30 @@
 
 Format: `HH:MM | TASK-ID | STARTED/DONE/BLOCKED/HANDOFF | what happened | files`
 
-- HH:MM | V0-S1 | STARTED |
+- 18:35 | V0-S0 | DONE | Froze MVP-SCOPE.md at 18:30 (Gate 0); created root .env.example matching backend config, contracts/.env.example, scripts/.env.example; verified check-hardcoded.sh OK | md/MVP-SCOPE.md, .env.example, contracts/.env.example, scripts/.env.example, docs/
+- 18:50 | V0-S1 | DONE | Vite React 19 + TS + Tailwind v4 frontend scaffold; PR #10 | frontend/, pnpm-lock.yaml
+- 19:25 | V0-S2 | DONE | Container infra: docker-compose.yml; backend.Dockerfile; frontend.Dockerfile; Caddyfile; PR #11 | docker-compose.yml, infra/, *.env.example
+- 19:42 | V0-S3 | DONE | GitHub repo governance: .github/CODEOWNERS with @Harsh2227kumar & @Sparsh566; PR #12 | .github/CODEOWNERS
+- 19:50 | V0-S4 | STARTED | EC2 deployment tooling: setup-ec2.sh, deploy.sh; PR #13 | infra/
+- 20:15 | V0-S5 | STARTED | Bedrock setup notes; PR #14 | —
+- 20:30 | V0-SYNC | DONE | Synced Base Sepolia registry addresses & Bedrock model id into .env.example; PR #15 | .env.example, scripts/.env.example, frontend/.env.example
+- 20:45 | V0-S6 | DONE | OpenAPI type generation; PR #16 | frontend/src/api/
+- 21:15 | V0-INTEGRATION | DONE | (HARSH) Merged PRs #8, #10–#16 into harsh/V0-integration and fixed review findings: frontend Docker build bakes VITE_API_BASE_URL / VITE_ZK_ARTIFACTS_BASE_URL (bundle threw on load before); gen:api script + generated-only types.ts, aliases in api/schemas.ts, client typed with paths; issuer pages show 501 until V1-H1; removed fake wallet/consent data and hardcoded chain name (ChainName from /meta/chain, steps from /meta/enums); pnpm 12.15.0 in Dockerfiles; .dockerignore; deploy.sh waits for /health; secrets blank in .env.example; removed docs/plan.md, docs/implementation.md, scripts/export-openapi.ts | frontend/, infra/, .env.example, scripts/.env.example, .dockerignore
+- 00:54 | V0-S1 | DONE | Switched palette to teal/ocean/plum (#79bab6 mint, #06838d teal, #014f85 navy, #2e036b plum) across design tokens and all UI views; PR #24 | frontend/src/index.css, frontend/src/components/, frontend/src/features/
+- 01:03 | V1-PLAN | DONE | Authored comprehensive V1 Master Plan and Implementation Specification for walking skeleton (V1-S1 to V1-S5) | docs/plan.md, docs/implementation.md
+- 01:38 | V1-S1 | DONE | Implemented Issuer Console: admin token auth, list & register issuers, keys table with rotation, schema-driven issue form with recipient lookup, batches table with Base Sepolia anchoring; typecheck & build green; browser verified | frontend/src/api/, frontend/src/features/issuer/, frontend/src/lib/
+- 02:03 | V1-S2 | DONE | Implemented Student Wallet: browser ECDH P-256 keypair via zk-core, idb-keyval store, offers inbox with BBS signature verification, credentials list with selective PII toggle, encrypted backup sync via PBKDF2/AES-GCM; typecheck & build green; browser verified | frontend/src/features/wallet/, frontend/src/lib/, frontend/src/api/
+- 02:35 | V1-S3 | DONE | Implemented Verifier Portal: verifier identity registration, natural language policy compiler (with graceful fallback banner), Visual Policy Builder with selective disclosure and ZK age predicates, Request Detail inspection with 4-stage evaluation pipeline visualizer and 2s live polling; typecheck, build & check-hardcoded green | frontend/src/features/verifier/, frontend/src/api/
+- 03:26 | V1-S4 | DONE | Implemented idempotent seed pipeline: seed/issuers.json (AIIMS Nagpur MBBS, IIIT Nagpur B.Tech, MMC, UIDAI), seed/holders.json (Asha, Rohan), seed/credentials.json, seed/verifiers.json, scripts/config.ts, scripts/seed.ts; verified on Base Sepolia and double-run idempotency | seed/, scripts/
+- 03:42 | V1-S5 | DONE | Implemented Student Wallet Respond page shell: query parameter request loading, local IndexedDB credential matching, 3-tier privacy consent breakdown (selective disclosure, zero-knowledge range proof, never-collect PII guardrails), authorization confirmation dialog; typecheck, build & check-hardcoded green | frontend/src/features/wallet/
+- 04:25 | V1-VERIFY | DONE | Verified all V1 tasks (V1-S1 through V1-S5); hardened scripts/seed.ts check authorization headers for idempotency; confirmed 100% typecheck, build, check-hardcoded passing and Gate G1 ready | scripts/seed.ts, md/progress/SPARSH-PROGRESS.md
+- 04:42 | V1-FIXES | DONE | Solved audit bugs: fail-closed BBS+ check on missing issuer pubkey in WalletInbox, full key status badge in CredentialCard, equality constraints credential matching + National ID display in ConsentScreen | frontend/src/features/wallet/
+- 05:10 | V1.1-S1 | DONE | Implemented live in-browser ZK presentation prover, animated multi-stage ProvingProgressModal, fetchBatchLeaves API query, and PresentationResultCard with 4-stage evaluation verdict | frontend/src/features/wallet/, frontend/src/api/queries/
+- 05:25 | V1.1-S2 | DONE | 4-node evaluation chain visualizer, diagnostic mapping for all 17 error codes, "Never Received: Name, DOB, Address" privacy invariant panel, mobile QR code with qrcode.react, and converging Verified Portable Credential badge | frontend/src/features/verifier/
+- 05:40 | V1.1-S3 | DONE | Implemented NL policy parse UX: PolicyPromptTemplates (canonical doctor, engineer, ambiguity test), AmbiguityQuestionsCard for 422 POLICY_AMBIGUOUS with interactive retry, CompiledPolicyChips with minimisation notes & 1-click publish | frontend/src/features/verifier/
+- 05:48 | V1.1-S4 | DONE | Executed QA Pass #1: verified 18 matrix items across Issuer, Wallet, Verifier, Prover, and Bedrock; confirmed /api/v1/health (db, chain, ai ok); verified 200 OK and 422 POLICY_AMBIGUOUS live; Gate G2 ready | docs/implementation.md, docs/plan.md, md/progress/SPARSH-PROGRESS.md
+
+
 
 ## Notes for the pitch
 

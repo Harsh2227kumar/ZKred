@@ -1,0 +1,77 @@
+@import "tailwindcss";
+
+/* Tailwind v4 only generates bg-primary / text-muted-foreground / border-border / … for colors declared in @theme.
+   Map the shadcn-style tokens below onto Tailwind's color namespace. */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-mint: #79bab6;
+  --color-teal: #06838d;
+  --color-navy: #014f85;
+  --color-plum: #2e036b;
+}
+
+@layer base {
+  :root {
+    --background: #090614;
+    --foreground: #f0f7f7;
+
+    --card: #130e24;
+    --card-foreground: #f0f7f7;
+
+    --popover: #130e24;
+    --popover-foreground: #f0f7f7;
+
+    --primary: #06838d;
+    --primary-foreground: #ffffff;
+
+    --secondary: #014f85;
+    --secondary-foreground: #ffffff;
+
+    --muted: #1a1430;
+    --muted-foreground: #8ea5a8;
+
+    --accent: #2e036b;
+    --accent-foreground: #79bab6;
+
+    --destructive: #ff453a;
+    --destructive-foreground: #ffffff;
+
+    --border: #231a3d;
+    --input: #1a1430;
+    --ring: #79bab6;
+
+    --radius: 1rem;
+  }
+}
+
+body {
+  margin: 0;
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", -apple-system-headline, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}

@@ -1,0 +1,18 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "types": [
+      "node",
+      "mocha"
+    ],
+    "noEmit": true,
+    "verbatimModuleSyntax": false,
+    "noUncheckedIndexedAccess": false
+  },
+  "include": [
+    "hardhat.config.ts",
+    "test",
+    "scripts",
+    "types"
+  ]
+}

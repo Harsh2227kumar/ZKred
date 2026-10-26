@@ -1,0 +1,20 @@
+{
+  "network": "baseSepolia",
+  "chain_id": 84532,
+  "accreditor": "0xDB4C3575071fBD57c360445Fae5a61127f61F2aD",
+  "deployed_at": "2026-10-25T14:15:36.563Z",
+  "contracts": {
+    "IssuerRegistry": {
+      "address": "0x7AD1dc8a22923df3a7997AC002cfb4b32Ad6AEa8",
+      "tx_hash": "0xe814e4e5b59d2a410c4da225090ec00d373c87a58b6bb262d4f263c7045dc6ae"
+    },
+    "AnchorRegistry": {
+      "address": "0x12DA5d65d4C7d46d900D7512C4096503fCD29Cfd",
+      "tx_hash": "0x9c2192f1d7af9215eaaa06144c369da315550e0d589fc3f73908f05a813dbf0e"
+    },
+    "StatusRegistry": {
+      "address": "0xeee916756f6a810034af451FC80f77aD00d8a0c0",
+      "tx_hash": "0xd1d2afac1795ac78dfd558ec03b25db87ee6191905450ccfc858fe1cb3dfbd28"
+    }
+  }
+}
