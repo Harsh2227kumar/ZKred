@@ -223,7 +223,7 @@ export const VerificationStages: React.FC<VerificationStagesProps> = ({
               </div>
 
               {/* Action details */}
-              <div className="space-y-3 text-center md:text-left flex-1 min-w-0">
+              <div className="space-y-3 text-center md:text-left flex-1 min-w-0 w-full">
                 <div className="space-y-1">
                   <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono bg-[#06838d]/20 text-[#79bab6] border border-[#06838d]/30">
                     <Smartphone className="w-3.5 h-3.5" />
@@ -238,8 +238,8 @@ export const VerificationStages: React.FC<VerificationStagesProps> = ({
                   </p>
                 </div>
 
-                <div className="p-3 rounded-xl bg-[#090614] border border-[#231a3d] flex items-center justify-between gap-3">
-                  <span className="text-xs font-mono text-[#79bab6] truncate">{shareUrl}</span>
+                <div className="p-3 rounded-xl bg-[#090614] border border-[#231a3d] flex items-center justify-between gap-3 min-w-0">
+                  <span className="text-xs font-mono text-[#79bab6] truncate min-w-0" title={shareUrl}>{shareUrl}</span>
                   <div className="flex items-center gap-2 shrink-0">
                     <button
                       type="button"

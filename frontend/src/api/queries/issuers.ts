@@ -25,25 +25,14 @@ import type {
 export function useIssuers() {
   return useQuery<IssuersListResponse>({
     queryKey: ['issuers'],
-    queryFn: async () => {
-      const { data, error } = await apiClient.GET('/issuers', {});
-      if (error) throw error;
-      return data as IssuersListResponse;
-    },
+    queryFn: () => unwrap(apiClient.GET('/issuers')),
   });
 }
 
 export function useIssuer(issuerId?: string) {
   return useQuery<Issuer>({
     queryKey: ['issuer', issuerId],
-    queryFn: async () => {
-      if (!issuerId) throw new Error('Issuer ID is required');
-      const { data, error } = await apiClient.GET('/issuers/{issuer_id}', {
-        params: { path: { issuer_id: issuerId } },
-      });
-      if (error) throw error;
-      return data as Issuer;
-    },
+    queryFn: () => unwrap(apiClient.GET('/issuers/{issuer_id}', { params: { path: { issuer_id: issuerId! } } })),
     enabled: Boolean(issuerId),
   });
 }

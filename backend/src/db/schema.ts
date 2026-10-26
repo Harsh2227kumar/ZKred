@@ -86,6 +86,8 @@ export const issuedCredentials = pgTable("issued_credentials", {
   issuedAt: timestamp("issued_at", { withTimezone: true }).notNull().defaultNow(),
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
   reissuedFrom: uuid("reissued_from").references((): AnyPgColumn => issuedCredentials.id),
+  // zk-core credentialDigest of the signed credential (not PII): re-issue only accepts the exact credential signed.
+  credentialDigest: text("credential_digest"),
 }, (t) => [
   // One revocation bit per credential: a shared bit would revoke two holders at once.
   unique("issued_credentials_status_slot_unique").on(t.statusListId, t.statusIndex),

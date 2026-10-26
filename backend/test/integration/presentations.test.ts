@@ -7,17 +7,22 @@ import {
   CREDENTIAL_LAYOUTS,
   buildPresentation,
   dateToDays,
+  statusList,
   walletCrypto,
   type CredentialType,
   type Hex32,
   type PresentationPolicy,
   type SignedCredential,
 } from "@zkred/zk-core";
+import { eq } from "drizzle-orm";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../../src/app";
-import { pool } from "../../src/db/client";
-import { provider } from "../../src/integrations/chain";
+import { openGovernanceKey } from "../../src/core/issuers";
+import { db, pool } from "../../src/db/client";
+import { findIssuerWithSecrets } from "../../src/db/repositories/issuers.repo";
+import { issuedCredentials, statusLists } from "../../src/db/schema";
+import { getListHash, provider, setListHash } from "../../src/integrations/chain";
 import { adminAuth, createIssuer, integrationEnabled, uniqueSuffix } from "./env";
 
 const app = createApp();
@@ -128,6 +133,15 @@ async function verifyOnce(policy: PresentationPolicy, creds: SignedCredential[])
 }
 const firstFailure = (v: { steps: { ok: boolean; code: string }[] }) => v.steps.find((s) => !s.ok)?.code;
 
+/** Edits one bit of a stored status list directly in the DB (an insider tampering); returns the original bytes. */
+async function setStatusBit(listId: string, index: number, value: boolean): Promise<Buffer> {
+  const [row] = await db.select().from(statusLists).where(eq(statusLists.listId, listId));
+  const bits = new Uint8Array(row!.bitstring);
+  statusList.setBit(bits, index, value);
+  await db.update(statusLists).set({ bitstring: Buffer.from(bits) }).where(eq(statusLists.listId, listId));
+  return row!.bitstring;
+}
+
 /** Hardhat only: moves chain time forward so anchors can fall before / after a compromise cutoff. */
 async function advanceChain(seconds: number) {
   await provider.send("evm_increaseTime", [seconds]);
@@ -219,6 +233,64 @@ describe.skipIf(!integrationEnabled)("presentations, revocation, breach (integra
     expect(list.onchain_hash.toLowerCase()).toBe(out.list_hash.toLowerCase());
     expect(firstFailure(await verifyOnce(degreePolicy(), [cred]))).toBe("REVOKED");
     await request(app).post(`${api}/issuers/${uni.id}/credentials/${d.credential_id}/revoke`).set(adminAuth).expect(409);
+  });
+
+  it("revocation: a status list edited in the DB fails closed and is never re-published by a later revoke", async () => {
+    const school = await createIssuer(app, "university");
+    const a = await issue(school, holder, "Degree");
+    const b = await issue(school, holder, "Degree");
+    await anchor(school, a.batch_id);
+    const [credA, credB] = [await receive(holder, a.offer_id), await receive(holder, b.offer_id)];
+    const revoked = (await request(app).post(`${api}/issuers/${school.id}/credentials/${a.credential_id}/revoke`).set(adminAuth).expect(200)).body;
+    const honestHash = revoked.list_hash as string;
+
+    // An insider clears A's bit in the database to "un-revoke" it.
+    const original = await setStatusBit(revoked.status_list_id, revoked.status_index, false);
+    const list = (await request(app).get(`${api}/status-lists/${revoked.status_list_id}`).expect(200)).body;
+    expect(list.hash).not.toBe(list.onchain_hash.toLowerCase());
+    expect(firstFailure(await verifyOnce(degreePolicy(), [credA]))).toBe("REVOCATION_LIST_TAMPERED");
+    expect(firstFailure(await verifyOnce(degreePolicy(), [credB]))).toBe("REVOCATION_LIST_TAMPERED");
+
+    // Revoking B must not launder the edit onto the chain: refused, on-chain hash untouched.
+    const refused = await request(app).post(`${api}/issuers/${school.id}/credentials/${b.credential_id}/revoke`).set(adminAuth).expect(409);
+    expect(refused.body.error.details).toHaveProperty("status_list_id");
+    expect((await getListHash(revoked.status_list_id))?.listHash.toLowerCase()).toBe(honestHash.toLowerCase());
+
+    // Once the stored list is repaired, revocation works again and both stay revoked.
+    await db.update(statusLists).set({ bitstring: original }).where(eq(statusLists.listId, revoked.status_list_id));
+    await request(app).post(`${api}/issuers/${school.id}/credentials/${b.credential_id}/revoke`).set(adminAuth).expect(200);
+    expect(firstFailure(await verifyOnce(degreePolicy(), [credA]))).toBe("REVOKED");
+    expect(firstFailure(await verifyOnce(degreePolicy(), [credB]))).toBe("REVOKED");
+  });
+
+  it("revocation: a retry after the hash tx was mined (but the DB update lost) re-syncs the DB without a new tx", async () => {
+    const school = await createIssuer(app, "university");
+    const d = await issue(school, holder, "Degree");
+    await anchor(school, d.batch_id);
+    const cred = await receive(holder, d.offer_id);
+    const [record] = await db.select().from(issuedCredentials).where(eq(issuedCredentials.id, d.credential_id));
+
+    // The tx of an interrupted revoke: the new hash is on-chain, the DB still has the old bits.
+    const [row] = await db.select().from(statusLists).where(eq(statusLists.listId, record!.statusListId));
+    const bits = new Uint8Array(row!.bitstring);
+    statusList.setBit(bits, record!.statusIndex, true);
+    const issuerRow = (await findIssuerWithSecrets(school.id))!;
+    await setListHash(openGovernanceKey(issuerRow.did, issuerRow.governanceKeyEnc), issuerRow.issuerChainId as Hex32, row!.listId as Hex32, statusList.hash(bits));
+    const blockBefore = await provider.getBlockNumber();
+
+    const out = (await request(app).post(`${api}/issuers/${school.id}/credentials/${d.credential_id}/revoke`).set(adminAuth).expect(200)).body;
+    expect(out.list_hash).toBe(statusList.hash(bits));
+    expect(await provider.getBlockNumber()).toBe(blockBefore);
+    expect(firstFailure(await verifyOnce(degreePolicy(), [cred]))).toBe("REVOKED");
+  });
+
+  it("revoke: another issuer's or an unknown credential → 404; unknown issuer → 404", async () => {
+    const d = await issue(uni, holder, "Degree");
+    await request(app).post(`${api}/issuers/${gov.id}/credentials/${d.credential_id}/revoke`).set(adminAuth).expect(404);
+    await request(app).post(`${api}/issuers/${uni.id}/credentials/${randomUUID()}/revoke`).set(adminAuth).expect(404);
+    await request(app).post(`${api}/issuers/${randomUUID()}/credentials/${d.credential_id}/revoke`).set(adminAuth).expect(404);
+    // Still revocable by its own issuer afterwards.
+    await request(app).post(`${api}/issuers/${uni.id}/credentials/${d.credential_id}/revoke`).set(adminAuth).expect(200);
   });
 
   it("rotation anchors the old key's open batch first, so its credentials still verify", async () => {

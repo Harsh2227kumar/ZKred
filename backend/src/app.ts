@@ -3,6 +3,7 @@ import express from "express";
 import { pinoHttp } from "pino-http";
 import { apiRouter } from "./api/router";
 import { errorHandler, notFoundHandler } from "./api/middleware/errors";
+import { rejectUnstorableText } from "./api/middleware/text-safety";
 import { API_BASE_PATH, config } from "./config";
 import { logger } from "./logger";
 
@@ -16,6 +17,7 @@ export function createApp() {
   app.use(pinoHttp({ logger, autoLogging: config.NODE_ENV !== "test" }));
   app.use(cors({ origin: config.CORS_ORIGINS }));
   app.use(express.json({ limit: "2mb" }));
+  app.use(rejectUnstorableText);
 
   app.use(API_BASE_PATH, apiRouter);
 

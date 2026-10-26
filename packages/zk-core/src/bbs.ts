@@ -12,6 +12,7 @@ import type { Hex32, SignedCredential } from "./types";
 
 const CIPHERSUITE = bbs.CIPHERSUITES.BLS12381_SHA256;
 const KEY_ID_DOMAIN = utf8ToBytes("zkred:key_id:v1");
+const DIGEST_DOMAIN = utf8ToBytes("zkred:credential_digest:v1");
 const HEX32_RE = /^0x[0-9a-fA-F]{64}$/;
 
 function layoutOf(type: CredentialType) {
@@ -81,6 +82,22 @@ export async function signCredential(i: {
     values: { ...values },
     signature: bytesToBase64url(signature),
   };
+}
+
+/**
+ * Fingerprint of exactly what the issuer signed: keccak256 over the BBS signature, which binds every message (type,
+ * issuer, key, serial, claims). The registrar stores it at issuance so re-issue can tell its own credential from a
+ * stolen-key forgery that reuses an honest serial. Reveals nothing about the claims: producing a signature needs the
+ * secret key. Throws ZkCoreError("INVALID_SIGNATURE") if the signature is not base64url.
+ */
+export function credentialDigest(c: SignedCredential): Hex32 {
+  let signature: Uint8Array;
+  try {
+    signature = base64urlToBytes(c.signature);
+  } catch {
+    throw new ZkCoreError("INVALID_SIGNATURE", "credential signature is not base64url");
+  }
+  return bytesToHex32(keccak_256(concatBytes(DIGEST_DOMAIN, signature)));
 }
 
 /** Fails closed: any malformed input returns false instead of throwing. */

@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { useBatches, useAnchorBatch } from '@/api/queries/issuers';
 import { TxLink } from '@/components/common/TxLink';
 import { Hex } from '@/components/common/Hex';
+import { ChainName } from '@/components/common/ChainName';
 import { Loading } from '@/components/common/Loading';
 import { ErrorState } from '@/components/common/ErrorState';
 import { EmptyState } from '@/components/common/EmptyState';
@@ -55,7 +56,7 @@ export const BatchesTab: React.FC<BatchesTabProps> = ({ issuerId, onPromptAuth }
       <div className="p-5 rounded-3xl border border-[#231a3d] bg-[#130e24] space-y-1">
         <h3 className="text-sm font-semibold text-[#f0f7f7]">Issuance Batches & Merkle Trees</h3>
         <p className="text-xs text-[#8ea5a8]">
-          Credentials are added as leaves to an open batch. Anchoring publishes the Merkle root on Base Sepolia, sealing timestamped issuance evidence for zero-knowledge proofs.
+          Credentials are added as leaves to an open batch. Anchoring publishes the Merkle root on <ChainName />, sealing timestamped issuance evidence for zero-knowledge proofs.
         </p>
       </div>
 

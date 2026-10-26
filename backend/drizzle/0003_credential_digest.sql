@@ -1,0 +1,1 @@
+ALTER TABLE "issued_credentials" ADD COLUMN "credential_digest" text;
