@@ -15,6 +15,7 @@ import {
 import { Hex } from '@/components/common/Hex';
 import { usePresentationRequest, useVerifications } from '@/api/queries/verifiers';
 import { VerificationStages } from '../components/VerificationStages';
+import { errorStatus, toUserMessage } from '@/api/client';
 
 export const RequestDetailPage: React.FC = () => {
   const { requestId } = useParams<{ requestId: string }>();
@@ -43,9 +44,13 @@ export const RequestDetailPage: React.FC = () => {
     return (
       <div className="max-w-2xl mx-auto p-6 rounded-3xl border border-[#fb7185]/30 bg-[#fb7185]/10 space-y-3 text-center">
         <AlertCircle className="w-8 h-8 text-[#fb7185] mx-auto" />
-        <h3 className="text-base font-semibold text-[#f0f7f7]">Presentation Request Not Found</h3>
+        <h3 className="text-base font-semibold text-[#f0f7f7]">
+          {!requestError || errorStatus(requestError) === 404 ? 'Presentation Request Not Found' : 'Could Not Load This Request'}
+        </h3>
         <p className="text-xs text-[#8ea5a8]">
-          The requested presentation policy ID could not be retrieved from the verifier registry.
+          {!requestError || errorStatus(requestError) === 404
+            ? 'The requested presentation policy ID could not be retrieved from the verifier registry.'
+            : toUserMessage(requestError)}
         </p>
         <div className="pt-2">
           <NavLink
