@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Base64url, DateTime, Uuid } from "./common.schema";
+import { Base64url, DateTime, PG_INT_MAX, Uuid } from "./common.schema";
 import { CredentialType } from "./issuance.schema";
 
 const NonEmptyBase64url = Base64url.min(1);
@@ -42,8 +42,8 @@ export const BackupIn = z
     ciphertext: NonEmptyBase64url,
     iv: NonEmptyBase64url,
     salt: NonEmptyBase64url,
-    kdf_iterations: z.number().int().positive(),
-    version: z.number().int().positive(),
+    kdf_iterations: z.number().int().positive().max(PG_INT_MAX),
+    version: z.number().int().positive().max(PG_INT_MAX),
   })
   .meta({ id: "BackupIn" });
 

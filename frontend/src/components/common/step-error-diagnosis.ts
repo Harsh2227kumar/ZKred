@@ -1,4 +1,4 @@
-// frontend/src/features/verifier/components/StepErrorDiagnosis.ts
+// frontend/src/components/common/step-error-diagnosis.ts (shared: verifier eval chain + attack console)
 // Maps deterministic verification step error codes (from md/CONTRACTS.md §2 and backend/src/core/verifier.ts)
 // to human-friendly, judge-ready diagnostic descriptions and recommendations.
 

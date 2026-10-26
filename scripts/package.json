@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "seed": "tsx seed.ts",
+    "seed:in-window": "tsx seed.ts --in-window",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

@@ -37,7 +37,7 @@ export const WalletInbox: React.FC<WalletInboxProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const { data: offersData, isLoading: offersLoading, refetch } = useOffers(walletId, walletToken);
-  const { data: issuersData } = useIssuers();
+  const { data: issuersData, refetch: refetchIssuers } = useIssuers();
   const claimMutation = useClaimOffer(walletId, walletToken);
 
   const offers = offersData?.items || [];
@@ -61,9 +61,11 @@ export const WalletInbox: React.FC<WalletInboxProps> = ({
         ciphertext: offer.ciphertext,
       });
 
-      // 3. Find issuer and public key
-      const issuer = issuers.find((i) => i.id === offer.issuer_id || i.did === credential.issuer_did);
-      const issuerKey = issuer?.keys?.find((k) => k.key_id === credential.key_id);
+      // 3. Find issuer and public key. A key we haven't seen yet (a new issuer, or the key rotated in after a
+      //    compromise, which signs every refreshed credential) means the cached list is stale: re-read it once.
+      const keyIn = (list: typeof issuers) =>
+        list.find((i) => i.id === offer.issuer_id || i.did === credential.issuer_did)?.keys?.find((k) => k.key_id === credential.key_id);
+      const issuerKey = keyIn(issuers) ?? keyIn((await refetchIssuers()).data?.items ?? []);
 
       if (!issuerKey?.public_key) {
         throw new Error('Issuer public key not found or not published on-chain. Cannot verify cryptographic signature.');
