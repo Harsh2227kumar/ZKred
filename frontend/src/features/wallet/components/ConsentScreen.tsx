@@ -1,5 +1,6 @@
 // frontend/src/features/wallet/components/ConsentScreen.tsx
 import React, { useState } from 'react';
+import { NavLink } from 'react-router-dom';
 import {
   ShieldCheck,
   Eye,
@@ -345,9 +346,17 @@ export const ConsentScreen: React.FC<ConsentScreenProps> = ({
         </button>
 
         {!allSatisfied && (
-          <p className="text-center text-xs text-[#fb7185]">
-            Your student wallet must contain all requested credentials before generating a proof.
-          </p>
+          <div className="p-3.5 rounded-2xl bg-[#fb7185]/10 border border-[#fb7185]/25 text-center text-xs space-y-1">
+            <p className="text-[#fb7185] font-medium">
+              Your active wallet is missing some or all requested credentials.
+            </p>
+            <p className="text-[#8ea5a8]">
+              Switch to <strong className="text-[#79bab6]">Dr. Asha Sharma</strong> in the Demo Guide bar above, or{' '}
+              <NavLink to="/wallet" className="text-[#79bab6] underline font-semibold">
+                claim pending offers in My Wallet
+              </NavLink>.
+            </p>
+          </div>
         )}
       </div>
 

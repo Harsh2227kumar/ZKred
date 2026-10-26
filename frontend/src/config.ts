@@ -4,11 +4,13 @@
 export interface FrontendConfig {
   apiBaseUrl: string;
   zkArtifactsBaseUrl: string;
+  demoWalletPassphrase?: string;
 }
 
 function loadConfig(): FrontendConfig {
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
   const zkArtifactsBaseUrl = import.meta.env.VITE_ZK_ARTIFACTS_BASE_URL;
+  const demoWalletPassphrase = import.meta.env.VITE_DEMO_WALLET_PASSPHRASE;
 
   const missing: string[] = [];
   if (!apiBaseUrl) missing.push('VITE_API_BASE_URL');
@@ -24,6 +26,7 @@ function loadConfig(): FrontendConfig {
   return {
     apiBaseUrl,
     zkArtifactsBaseUrl,
+    demoWalletPassphrase,
   };
 }
 

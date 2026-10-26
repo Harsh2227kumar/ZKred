@@ -100,6 +100,14 @@ export const ForgeryScoreboard: React.FC<ForgeryScoreboardProps> = ({ runs, mode
                 {MODES.find((m) => m.value === mode)!.hint}. {fooled ? 'Every forgery passed.' : ''}
               </p>
             )}
+            {!fooled && latest.rejected > 0 && (
+              <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 text-xs text-emerald-400 space-y-0.5">
+                <span className="font-semibold block">Protected by On-Chain Cutoff Time</span>
+                <p className="text-[11px] text-emerald-300/80">
+                  All forgeries were anchored after the compromise cutoff and isolated. Honest credentials anchored before the breach stay valid!
+                </p>
+              </div>
+            )}
             <p className="text-[11px] text-muted-foreground">Last run {new Date(latest.ran_at).toLocaleTimeString()}</p>
           </div>
         </div>
