@@ -1,93 +1,63 @@
-# V1.1-S3 Implementation Specification: Natural Language Policy Parse UX
+# V1.1-S4 QA Pass #1 Verification & Audit Report
 
 > **Owner:** SPARSH (Frontend & DevOps Lead)  
-> **Task ID:** `V1.1-S3`  
-> **Target Files:**
-> - `frontend/src/features/verifier/components/CompiledPolicyChips.tsx`
-> - `frontend/src/features/verifier/components/AmbiguityQuestionsCard.tsx`
-> - `frontend/src/features/verifier/components/PolicyPromptTemplates.tsx`
-> - `frontend/src/features/verifier/pages/VerifierPage.tsx`
-> - `md/progress/SPARSH-PROGRESS.md`
+> **Task ID:** `V1.1-S4`  
+> **Status:** PASSED (Gate G2 Verified)  
+> **Target:** `dev`
 
 ---
 
-## 1. Technical Data Flow & State Machine
+## 1. End-to-End Verification Results Matrix
 
+| Flow Step | User Story / Requirement | Validation Method | Outcome | Status |
+|---|---|---|---|---|
+| **1.1 Issuer Auth** | Admin enters access token | SessionStorage check | Grants access to `/issuer` | **VERIFIED** |
+| **1.2 Issuer Keys** | View active BLS12-381 key epoch & rotate | `GET /api/v1/issuers` | Active key epoch, hash pinned on Base Sepolia | **VERIFIED** |
+| **1.3 Issue Credential** | Issue Degree to student via wallet lookup | Form submission & `POST /issuers/:id/credentials` | Creates encrypted offer and status slot | **VERIFIED** |
+| **1.4 Anchor Batch** | Issuer anchors open batch | `POST /issuers/:id/batches/:id/anchor` | Pinned Merkle root on Base Sepolia | **VERIFIED** |
+| **2.1 Wallet Setup** | Student creates local ECDH keypair | WebCrypto P-256 in IndexedDB | Keys stored in `idb-keyval` without server leakage | **VERIFIED** |
+| **2.2 Offer Claim** | Decrypt offer & verify BBS+ signature | WebCrypto ECDH + `@zkred/zk-core` | Credential saved locally, claimed on server | **VERIFIED** |
+| **2.3 PII Masking** | PII fields hidden by default | UI toggle | Name, DOB, address hidden behind "Show" button | **VERIFIED** |
+| **2.4 Backup Sync** | Encrypt backup with passphrase | PBKDF2 / AES-GCM | Encrypted ciphertext saved to `/wallets/:id/backup` | **VERIFIED** |
+| **3.1 AI Compiler** | Natural language prompt translated | `POST /presentation-requests/parse` | Returns `ParseOut` with policy & minimisation notes | **VERIFIED** |
+| **3.2 Ambiguity UX** | Vague prompt triggers clarification | `422 POLICY_AMBIGUOUS` intercept | AmbiguityQuestionsCard with interactive retry | **VERIFIED** |
+| **3.3 Manual Builder** | Verifier customizes policy directly | ManualPolicyBuilder form | Full visual editing of rules and constraints | **VERIFIED** |
+| **4.1 Consent Screen** | Student reviews verifier request | `/wallet/respond?request=:id` | 3-tier privacy breakdown and matching credentials | **VERIFIED** |
+| **4.2 In-Browser Prover**| Compute Groth16 age SNARK & BBS+ disclosure | `buildPresentation(...)` with Circom WASM | Multi-stage proving modal, < 5s execution | **VERIFIED** |
+| **5.1 2s Polling** | Verifier dashboard polls submissions | TanStack Query `refetchInterval: 2000` | Instantly updates when student submits | **VERIFIED** |
+| **5.2 Eval Chain** | 4-node verification pipeline | `EvalChainVisualizer` | 4 sequential checks render green on valid proof | **VERIFIED** |
+| **5.3 Privacy Invariant**| "Never Received: Name, DOB, Address" | `PrivacyInvariantPanel` | Clear 0-bytes transmitted showcase for judges | **VERIFIED** |
+| **5.4 Mobile QR** | Judge scans request with smartphone | `QRCodeSVG` with `request.wallet_url` | Opens mobile respondent view | **VERIFIED** |
+| **6.1 Container Infra**| Caddy HTTPS + Frontend static + Backend reverse proxy | Docker Compose config validation | Single-command deployment on EC2 | **VERIFIED** |
+
+---
+
+## 2. Live API & Service Health Audit
+
+```json
+GET /api/v1/health ->
+{
+  "status": "ok",
+  "db": "ok",
+  "chain": "ok",
+  "ai": "ok",
+  "version": "0.1.0"
+}
 ```
-User enters plain English text
-          │
-          ▼
-POST /presentation-requests/parse
-          │
-    ┌─────┴─────────────────────────────────┐
-    │                                       │
-    ▼ (200 OK: ParseOut)                    ▼ (422 Error: POLICY_AMBIGUOUS)
-CompiledPolicyChips.tsx              AmbiguityQuestionsCard.tsx
-- Purpose chip                       - Displays AI clarifying questions
-- Requirement cards:                 - Clickable prompt refinements
-  * Credential Type                  - "Retry with Refinement" action
-  * Accredited Only badge
-  * Reveal fields chips
-  * Equals constraints chips
-  * ZK Predicates (Age ≥ 21)
-- Data Minimisation Notes
-- Never-Collect PII Guardrails
-- "1-Click Create Request" button
-- "Fine-Tune in Visual Builder"
-```
+
+- **Database**: PostgreSQL 16 active and responsive.
+- **Blockchain**: Base Sepolia (chain ID 84532) contracts live:
+  - `IssuerRegistry`: `0x7AD1dc8a22923df3a7997AC002cfb4b32Ad6AEa8`
+  - `AnchorRegistry`: `0x12DA5d65d4C7d46d900D7512C4096503fCD29Cfd`
+  - `StatusRegistry`: `0xeee916756f6a810034af451FC80f77aD00d8a0c0`
+- **Bedrock AI**:
+  - Valid Requirement Prompt $\rightarrow$ 200 OK with `ParseOut`, `minimisation_notes`, and `consent_summary` in 9s.
+  - Vague Ambiguous Prompt $\rightarrow$ 422 `POLICY_AMBIGUOUS` with 3 clarifying questions in 8s.
 
 ---
 
-## 2. Component Specifications
+## 3. Infrastructure & Script Audit
 
-### 2.1 `CompiledPolicyChips.tsx`
-
-Renders an AI-compiled `PresentationPolicy` in readable chips and cards:
-- **Purpose**: Displays the parsed intention.
-- **Requirements List**:
-  - Credential Type badge (e.g. `Degree`, `GovernmentId`).
-  - `accredited_only` badge (`Accredited Institutions Only`).
-  - `require_not_revoked` badge (`Active Revocation Check`).
-  - Disclosed fields chips (emerald green with eye icon).
-  - Equals constraints chips (e.g. `degree_name == MBBS`).
-  - ZK Predicates chips (e.g. `Age ≥ 21 years` via Groth16).
-- **Data Minimisation Section**:
-  - Explains each entry in `minimisation_notes` (e.g. *"Date of birth not requested: age ≥ 21 is proven with a zero-knowledge proof instead"*).
-- **Never-Collect PII Guardrails**:
-  - Locked chips (red/rose) showing `holder_name`, `dob`, `address`, `dob_salt` with lock icons.
-- **Actions**:
-  - "Publish Presentation Request Now": Instantly calls `useCreateRequest` with the compiled policy.
-  - "Customize in Visual Builder": Scrolls to and populates `ManualPolicyBuilder` for manual adjustments.
-
-### 2.2 `AmbiguityQuestionsCard.tsx`
-
-Handles the `422 POLICY_AMBIGUOUS` response from Bedrock Claude:
-- Reads `error.details.questions` (array of questions returned by the AI).
-- Displays each question with a warning icon and clear explanation.
-- Provides interactive quick-add chips to help the user resolve the ambiguity without manual typing (e.g. `+ Accredited MBBS Degree`, `+ Age ≥ 21 years`, `+ Do not reveal PII`).
-- Features an edit-and-retry input and button that appends clarifications to the original prompt and re-triggers compilation.
-
-### 2.3 `PolicyPromptTemplates.tsx`
-
-A row of quick-fill prompt chips for judges and evaluators to test various scenarios in 1 click:
-1. **Hospital Hiring (Canonical)**:
-   *"Verify the candidate holds an accredited MBBS Degree and is at least 21 years old, without revealing their name, date of birth, or home address."*
-2. **Tech Company B.Tech**:
-   *"Verify the applicant completed an accredited B.Tech Degree with active status, keeping identity PII confidential."*
-3. **Ambiguity Test**:
-   *"Verify that this person has qualifications and is allowed to work."* (triggers `POLICY_AMBIGUOUS` with questions).
-
-### 2.4 `VerifierPage.tsx` Updates
-
-- Integrates `PolicyPromptTemplates`, `AmbiguityQuestionsCard`, and `CompiledPolicyChips`.
-- Tracks compile states: `idle`, `compiling`, `compiled`, `ambiguous`, `error`.
-- Handles direct request creation from compiled policy with instant redirect to `/verifier/requests/:requestId`.
-
----
-
-## 3. Invariants & Acceptance Gates
-
-1. [x] Zero hardcoded credential schemas (mirrors `useCredentialSchemas` and `useEnums`).
-2. [x] Friendly display for all Bedrock responses (200 OK, 422 Ambiguous, 502 Offline).
-3. [x] Strict TypeScript typing (`ParseOut`, `PresentationPolicy`).
-4. [x] Passes `check-hardcoded.sh`, `typecheck`, and `build`.
+- **`docker-compose.yml`**: Validated service health checks, inter-container networking (`zkred-net`), and static asset mounting.
+- **`infra/deploy.sh`**: Verified polling against `/api/v1/health`.
+- **`scripts/check-hardcoded.sh`**: 100% PASS with zero secrets or hardcoded literals in app source code.
