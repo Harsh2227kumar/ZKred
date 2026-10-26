@@ -4,6 +4,7 @@
 import { randomBytes } from "node:crypto";
 import {
   CREDENTIAL_LAYOUTS,
+  credentialDigest,
   merkleRoot,
   signCredential,
   statusList,
@@ -18,6 +19,7 @@ import * as repo from "../db/repositories/issuance.repo";
 import * as issuersRepo from "../db/repositories/issuers.repo";
 import * as walletsRepo from "../db/repositories/wallets.repo";
 import * as chain from "../integrations/chain";
+import { logger } from "../logger";
 import type {
   Batch,
   BatchLeaves,
@@ -131,6 +133,7 @@ async function signAndOffer(
       commitment,
       issuedAt,
       reissuedFrom,
+      credentialDigest: credentialDigest(credential),
     },
     {
       walletId,
@@ -159,6 +162,8 @@ export async function issueCredential(issuerId: string, input: IssueCredentialIn
 /**
  * Flips the credential's status bit and pins the new list hash on-chain. If an earlier attempt got the tx mined but
  * crashed before the DB update, the chain already holds the new hash and only the DB is brought in line.
+ * The stored list must still hash to what the chain holds: an edited list (e.g. a revoked bit cleared in the DB) is
+ * never re-published, or the next honest revocation would pin the edit on-chain and un-revoke credentials for good.
  */
 export async function revokeCredential(issuerId: string, credentialId: string): Promise<RevokeOut> {
   return withIssuerLock(issuerId, async () => {
@@ -170,11 +175,19 @@ export async function revokeCredential(issuerId: string, credentialId: string): 
     if (!list) throw new Error(`status list ${cred.statusListId} missing for credential ${credentialId}`);
 
     const bits = new Uint8Array(list.bitstring);
+    const storedHash = statusList.hash(bits);
     statusList.setBit(bits, cred.statusIndex, true);
     const hash = statusList.hash(bits);
-    const onchain = await chain.getListHash(list.listId as Hex32);
+    const onchain = (await chain.getListHash(list.listId as Hex32))?.listHash.toLowerCase();
+    const alreadyPublished = onchain === hash.toLowerCase();
+    if (!alreadyPublished && onchain !== storedHash.toLowerCase()) {
+      logger.error({ issuer_id: issuerId, status_list_id: list.listId }, "stored status list does not match its on-chain hash");
+      throw new AppError("CONFLICT", "The stored status list does not match its on-chain hash; refusing to publish it", {
+        status_list_id: "stored list differs from the chain (edited or out of sync); restore it before revoking",
+      });
+    }
     let txHash = list.txHash ?? "";
-    if (onchain?.listHash.toLowerCase() !== hash.toLowerCase()) {
+    if (!alreadyPublished) {
       const tx = await chain.setListHash(
         openGovernanceKey(issuer.did, issuer.governanceKeyEnc),
         issuer.issuerChainId as Hex32,
@@ -205,9 +218,10 @@ function needsReissue(batch: repo.BatchRow, key: { status: string; compromisedFr
 
 /**
  * Re-issues a holder's credential under the issuer's current key (breach recovery). The old credential must carry a
- * valid signature by one of this issuer's keys AND its commitment must be in the issuer's own records for this
- * wallet, unrevoked and not yet re-issued: forgeries made with a stolen key are not in those records, so they can't
- * be laundered into fresh credentials.
+ * valid signature by one of this issuer's keys, its commitment must be in the issuer's own records for this wallet,
+ * unrevoked and not yet re-issued, AND it must be byte-for-byte the credential the issuer signed (its recorded
+ * digest). Forgeries made with a stolen key are not in those records; one that reuses an honest holder's serial with
+ * other claims has a different digest. Either way nothing forged can be laundered into a fresh credential.
  */
 export async function reissue(issuerId: string, input: ReissueIn): Promise<{ offer_id: string }> {
   const old = input.old_credential as SignedCredential;
@@ -221,6 +235,8 @@ export async function reissue(issuerId: string, input: ReissueIn): Promise<{ off
 
     const record = await repo.findIssuedByCommitment(old.values.commitment ?? "");
     if (!record || record.issuerId !== issuerId || record.keyId !== old.key_id) throw refused("not in the issuer's records");
+    if (!record.credentialDigest) throw refused("issued before credential digests were recorded; ask the issuer to re-issue it");
+    if (record.credentialDigest !== credentialDigest(old)) throw refused("not the credential this issuer signed (claims differ)");
     if (record.walletId !== input.wallet_id) throw refused("issued to another wallet");
     if (record.revokedAt) throw refused("revoked");
     if (await repo.hasReissue(record.id)) throw new AppError("CONFLICT", "This credential was already re-issued");

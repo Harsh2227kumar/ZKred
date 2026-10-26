@@ -2,6 +2,7 @@
 // IndexedDB storage management for holder keys, token, and claimed credentials via idb-keyval.
 import { get, set, del } from 'idb-keyval';
 import type { SignedCredential } from './wallet-crypto';
+import { walletCrypto } from './zk';
 
 export interface WalletMetadata {
   id: string;
@@ -19,12 +20,118 @@ export interface FullWalletBackupState {
   metadata: WalletMetadata;
   keypair: WalletKeypair;
   credentials: SignedCredential[];
+  /** Commitments of credentials replaced by a refreshed copy (breach recovery). Optional: older backups lack it. */
+  replaced_commitments?: string[];
   exported_at: string;
 }
 
 const META_KEY = 'zkred_wallet_meta';
 const KEYPAIR_KEY = 'zkred_wallet_key';
 const CREDENTIALS_KEY = 'zkred_credentials';
+const REPLACED_KEY = 'zkred_replaced_commitments';
+
+// ---------------------------------------------------------------- device (biometric) lock
+// With the lock on, the four keys below are not in IndexedDB at all: one record holds them sealed under the WebAuthn
+// PRF secret (lib/biometric-unlock.ts → walletCrypto.sealWithDeviceSecret), and the plaintext lives in memory only
+// after an unlock in this page. Every read fails closed while locked.
+const DEVICE_LOCK_KEY = 'zkred_device_lock';
+const LOCKED_KEYS = [META_KEY, KEYPAIR_KEY, CREDENTIALS_KEY, REPLACED_KEY] as const;
+type LockedKey = (typeof LOCKED_KEYS)[number];
+type LockedValues = Partial<Record<LockedKey, unknown>>;
+
+export interface DeviceLock {
+  credential_id: Uint8Array<ArrayBuffer>;
+  prf_salt: Uint8Array<ArrayBuffer>;
+  sealed: { ciphertext: string; iv: string; salt: string };
+}
+
+export class WalletLockedError extends Error {
+  constructor() {
+    super('Unlock the wallet with your fingerprint, face or device PIN first.');
+    this.name = 'WalletLockedError';
+  }
+}
+
+let unlocked: { secret: Uint8Array; lock: DeviceLock; values: LockedValues } | null = null;
+let resealing: Promise<void> = Promise.resolve();
+
+export async function getDeviceLock(): Promise<DeviceLock | null> {
+  return (await get<DeviceLock>(DEVICE_LOCK_KEY)) ?? null;
+}
+
+/** True if this device's wallet is sealed and has not been unlocked in this page yet. */
+export async function isWalletLocked(): Promise<boolean> {
+  return !unlocked && (await getDeviceLock()) !== null;
+}
+
+async function readValue<T>(key: LockedKey): Promise<T | undefined> {
+  if (unlocked) return unlocked.values[key] as T | undefined;
+  if (await getDeviceLock()) throw new WalletLockedError();
+  return get<T>(key);
+}
+
+async function writeValue(key: LockedKey, value: unknown): Promise<void> {
+  const u = unlocked;
+  if (!u) {
+    if (await getDeviceLock()) throw new WalletLockedError();
+    await set(key, value);
+    return;
+  }
+  u.values[key] = value;
+  // Serialised so an older seal never overwrites a newer one.
+  resealing = resealing
+    .catch(() => undefined)
+    .then(async () => {
+      const lock = { ...u.lock, sealed: await walletCrypto.sealWithDeviceSecret(u.secret, u.values) };
+      await set(DEVICE_LOCK_KEY, lock);
+      u.lock = lock;
+    });
+  await resealing;
+}
+
+/** Throws ZkCoreError("DEVICE_UNLOCK_FAILED") if the secret does not open this device's wallet. */
+export async function unlockWithDeviceSecret(secret: Uint8Array): Promise<void> {
+  const lock = await getDeviceLock();
+  if (!lock) return;
+  const values = (await walletCrypto.openWithDeviceSecret(secret, lock.sealed)) as LockedValues;
+  unlocked = { secret, lock, values };
+}
+
+/** Forgets the unlocked copy (and passphrase) from memory; the next read needs the biometric again. */
+export function lockWallet(): void {
+  unlocked = null;
+  clearSessionPassphrase();
+}
+
+/** Seals the plaintext wallet under the device secret, checks it opens, then deletes the plaintext keys. */
+export async function enableDeviceLock(e: { credentialId: Uint8Array<ArrayBuffer>; prfSalt: Uint8Array<ArrayBuffer>; secret: Uint8Array }): Promise<void> {
+  if (await getDeviceLock()) throw new Error('Biometric lock is already on for this wallet.');
+  const values: LockedValues = {};
+  for (const k of LOCKED_KEYS) {
+    const v = await get(k);
+    if (v !== undefined) values[k] = v;
+  }
+  if (!values[META_KEY] || !values[KEYPAIR_KEY]) throw new Error('There is no wallet on this device to protect.');
+  const lock: DeviceLock = {
+    credential_id: e.credentialId,
+    prf_salt: e.prfSalt,
+    sealed: await walletCrypto.sealWithDeviceSecret(e.secret, values),
+  };
+  await walletCrypto.openWithDeviceSecret(e.secret, lock.sealed);
+  await set(DEVICE_LOCK_KEY, lock);
+  for (const k of LOCKED_KEYS) await del(k);
+  unlocked = { secret: e.secret, lock, values };
+}
+
+/** Writes the unlocked wallet back as plaintext IndexedDB keys and removes the sealed record. */
+export async function disableDeviceLock(): Promise<void> {
+  const u = unlocked;
+  if (!u) throw new WalletLockedError();
+  await resealing.catch(() => undefined);
+  for (const k of LOCKED_KEYS) if (u.values[k] !== undefined) await set(k, u.values[k]);
+  await del(DEVICE_LOCK_KEY);
+  unlocked = null;
+}
 
 // Volatile in-memory passphrase (cleared on reload/close)
 let memoryPassphrase = '';
@@ -42,30 +149,30 @@ export function clearSessionPassphrase(): void {
 }
 
 export async function getWalletMetadata(): Promise<WalletMetadata | null> {
-  const meta = await get<WalletMetadata>(META_KEY);
+  const meta = await readValue<WalletMetadata>(META_KEY);
   return meta || null;
 }
 
 export async function saveWalletMetadata(meta: WalletMetadata): Promise<void> {
-  await set(META_KEY, meta);
+  await writeValue(META_KEY, meta);
 }
 
 export async function getWalletKeypair(): Promise<WalletKeypair | null> {
-  const keys = await get<WalletKeypair>(KEYPAIR_KEY);
+  const keys = await readValue<WalletKeypair>(KEYPAIR_KEY);
   return keys || null;
 }
 
 export async function saveWalletKeypair(keys: WalletKeypair): Promise<void> {
-  await set(KEYPAIR_KEY, keys);
+  await writeValue(KEYPAIR_KEY, keys);
 }
 
 export async function getStoredCredentials(): Promise<SignedCredential[]> {
-  const creds = await get<SignedCredential[]>(CREDENTIALS_KEY);
+  const creds = await readValue<SignedCredential[]>(CREDENTIALS_KEY);
   return creds || [];
 }
 
 export async function saveStoredCredentials(creds: SignedCredential[]): Promise<void> {
-  await set(CREDENTIALS_KEY, creds);
+  await writeValue(CREDENTIALS_KEY, creds);
 }
 
 export async function addStoredCredential(cred: SignedCredential): Promise<SignedCredential[]> {
@@ -82,10 +189,33 @@ export async function addStoredCredential(cred: SignedCredential): Promise<Signe
   return updated;
 }
 
+/** Removes one credential (by commitment) from this device; returns what is left. */
+export async function removeStoredCredential(commitment: string): Promise<SignedCredential[]> {
+  const remaining = (await getStoredCredentials()).filter((c) => c.values?.commitment !== commitment);
+  await saveStoredCredentials(remaining);
+  await writeValue(REPLACED_KEY, (await getReplacedCommitments()).filter((c) => c !== commitment));
+  return remaining;
+}
+
+/** Commitments of credentials whose refreshed copy was requested: they are never offered to verifiers again. */
+export async function getReplacedCommitments(): Promise<string[]> {
+  return (await readValue<string[]>(REPLACED_KEY)) ?? [];
+}
+
+export async function markCredentialReplaced(commitment: string): Promise<string[]> {
+  const replaced = await getReplacedCommitments();
+  const next = replaced.includes(commitment) ? replaced : [...replaced, commitment];
+  await writeValue(REPLACED_KEY, next);
+  return next;
+}
+
 export async function clearWalletStore(): Promise<void> {
   await del(META_KEY);
   await del(KEYPAIR_KEY);
   await del(CREDENTIALS_KEY);
+  await del(REPLACED_KEY);
+  await del(DEVICE_LOCK_KEY);
+  unlocked = null;
   clearSessionPassphrase();
 }
 
@@ -96,6 +226,7 @@ export async function getFullWalletState(): Promise<FullWalletBackupState | null
   const meta = await getWalletMetadata();
   const keys = await getWalletKeypair();
   const creds = await getStoredCredentials();
+  const replaced = await getReplacedCommitments();
 
   if (!meta || !keys) return null;
 
@@ -104,6 +235,7 @@ export async function getFullWalletState(): Promise<FullWalletBackupState | null
     metadata: meta,
     keypair: keys,
     credentials: creds,
+    replaced_commitments: replaced,
     exported_at: new Date().toISOString(),
   };
 }
@@ -115,77 +247,11 @@ export async function restoreWalletState(state: FullWalletBackupState): Promise<
   if (!state.metadata || !state.keypair) {
     throw new Error('Invalid wallet backup format');
   }
+  // A restore replaces this device's wallet, so any biometric lock on the old one goes with it.
+  await del(DEVICE_LOCK_KEY);
+  unlocked = null;
   await saveWalletMetadata(state.metadata);
   await saveWalletKeypair(state.keypair);
   await saveStoredCredentials(state.credentials || []);
-}
-
-// ---------------------------------------------------------------------------
-// V1.2-H4 session-driven wallet store (used by features/wallet/hooks/*).
-// A separate storage key and API surface from the V1-S2 components above.
-// ---------------------------------------------------------------------------
-
-import { BACKUP_KDF_ITERATIONS, walletCrypto, type SignedCredential as ZkSignedCredential } from './zk';
-
-const STORE_KEY = 'zkred_wallet_v1';
-/** Bumped if the backup's JSON shape changes. */
-export const BACKUP_VERSION = 1;
-
-export interface StoredCredential {
-  /** The offer this credential arrived in (stable local id). */
-  offer_id: string;
-  issuer_id: string;
-  received_at: string;
-  credential: ZkSignedCredential;
-  /** Set when a refreshed copy was requested (breach recovery); this copy is then never offered to verifiers. */
-  replaced_at?: string;
-}
-
-export interface WalletData {
-  wallet_id: string;
-  wallet_token: string;
-  display_name: string;
-  private_key_jwk: JsonWebKey;
-  credentials: StoredCredential[];
-  /** Offers that failed decryption or signature checks: skipped on later inbox checks instead of re-reported. */
-  rejected_offer_ids?: string[];
-}
-
-export async function loadWallet(): Promise<WalletData | null> {
-  return (await get<WalletData>(STORE_KEY)) ?? null;
-}
-
-export async function saveWallet(w: WalletData): Promise<void> {
-  await set(STORE_KEY, w);
-}
-
-export async function forgetWallet(): Promise<void> {
-  await del(STORE_KEY);
-  passphrase = null;
-}
-
-// ---------------------------------------------------------------- passphrase (memory only)
-
-let passphrase: string | null = null;
-export const getPassphrase = (): string | null => passphrase;
-export const setPassphrase = (p: string | null): void => {
-  passphrase = p;
-};
-
-/** Everything needed to rebuild the wallet on a new browser, encrypted with the passphrase (PBKDF2 → AES-GCM). */
-export async function encryptWalletBackup(w: WalletData, pass: string) {
-  const b = await walletCrypto.encryptBackup(pass, w, BACKUP_KDF_ITERATIONS);
-  return { ...b, version: BACKUP_VERSION };
-}
-
-/** Throws ZkCoreError("BAD_PASSPHRASE") on a wrong passphrase. */
-export async function decryptWalletBackup(
-  pass: string,
-  b: { ciphertext: string; iv: string; salt: string; kdf_iterations: number },
-): Promise<WalletData> {
-  const data = (await walletCrypto.decryptBackup(pass, b)) as WalletData;
-  if (!data?.wallet_id || !data.private_key_jwk || !Array.isArray(data.credentials)) {
-    throw new Error('This backup is not a ZKred wallet');
-  }
-  return data;
+  await writeValue(REPLACED_KEY, state.replaced_commitments ?? []);
 }

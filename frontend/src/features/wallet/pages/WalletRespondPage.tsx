@@ -1,25 +1,31 @@
 // frontend/src/features/wallet/pages/WalletRespondPage.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, NavLink } from 'react-router-dom';
 import { ArrowLeft, Shield, AlertCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePresentationRequest, useSubmitPresentation } from '@/api/queries/verifiers';
 import { useIssuers, fetchBatchLeaves } from '@/api/queries/issuers';
-import { getStoredCredentials } from '@/lib/wallet-store';
+import { getReplacedCommitments, getStoredCredentials, isWalletLocked } from '@/lib/wallet-store';
 import { createPresentation, type IssuerInfo } from '@/lib/zk';
 import type { SignedCredential } from '@/lib/wallet-crypto';
 import type { Verification } from '@/api/schemas';
 import { ConsentScreen } from '../components/ConsentScreen';
+import { DeviceUnlock } from '../components/DeviceUnlock';
 import { ProvingProgressModal, type ProvingStage } from '../components/ProvingProgressModal';
 import { PresentationResultCard } from '../components/PresentationResultCard';
 import { EmptyState } from '@/components/common/EmptyState';
+import { toUserMessage } from '@/api/client';
+import { credentialKey, isPresentable, newestFirst, useCredentialStatuses } from '../hooks/useCredentialStatus';
 
 export const WalletRespondPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const requestId = searchParams.get('request');
 
   const [localCredentials, setLocalCredentials] = useState<SignedCredential[]>([]);
+  const [replaced, setReplaced] = useState<string[]>([]);
   const [isLoadingStorage, setIsLoadingStorage] = useState(true);
+  const [locked, setLocked] = useState(false);
+  const [unlockCount, setUnlockCount] = useState(0);
 
   // Prover & Verification Lifecycle State
   const [provingStage, setProvingStage] = useState<ProvingStage>('IDLE');
@@ -38,10 +44,15 @@ export const WalletRespondPage: React.FC = () => {
 
   useEffect(() => {
     let mounted = true;
-    getStoredCredentials()
-      .then((creds) => {
+    isWalletLocked()
+      .then(async (isLocked) => {
+        if (mounted) setLocked(isLocked);
+        return isLocked ? ([[], []] as [SignedCredential[], string[]]) : Promise.all([getStoredCredentials(), getReplacedCommitments()]);
+      })
+      .then(([creds, replacedCommitments]) => {
         if (mounted) {
           setLocalCredentials(creds);
+          setReplaced(replacedCommitments);
           setIsLoadingStorage(false);
         }
       })
@@ -53,7 +64,18 @@ export const WalletRespondPage: React.FC = () => {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [unlockCount]);
+
+  // Only credentials a verifier would accept right now (not revoked, not in a compromise window, not replaced by a
+  // refreshed copy), newest first so a refreshed copy wins. If the status can't be read, the verifier still decides.
+  const statuses = useCredentialStatuses(localCredentials, replaced);
+  const presentable = useMemo(() => {
+    const notReplaced = localCredentials.filter((c) => !replaced.includes(credentialKey(c)));
+    const usable = statuses.data ? notReplaced.filter((c) => isPresentable(statuses.data[credentialKey(c)])) : statuses.error ? notReplaced : [];
+    return [...usable].sort(newestFirst);
+  }, [localCredentials, replaced, statuses.data, statuses.error]);
+  const heldBack = localCredentials.length - presentable.length;
+  const isCheckingStatus = localCredentials.length > 0 && statuses.isLoading;
 
   const hasAgePredicate =
     request?.policy?.requirements.some((r) =>
@@ -87,7 +109,7 @@ export const WalletRespondPage: React.FC = () => {
 
       // 2. Fetch on-chain batch leaves for each candidate credential
       const batchLeaves: Record<string, string[]> = {};
-      for (const cred of localCredentials) {
+      for (const cred of presentable) {
         const batchId = cred.values?.batch_id;
         if (batchId && !batchLeaves[batchId]) {
           const leaves = await fetchBatchLeaves(batchId);
@@ -105,7 +127,7 @@ export const WalletRespondPage: React.FC = () => {
           nonce: request.nonce,
           policy: request.policy,
         },
-        credentials: localCredentials,
+        credentials: presentable,
         issuerKeys,
         batchLeaves,
         issuers: issuersMap,
@@ -150,7 +172,20 @@ export const WalletRespondPage: React.FC = () => {
     );
   }
 
-  if (isLoadingRequest || isLoadingStorage) {
+  if (locked) {
+    return (
+      <div className="py-12">
+        <DeviceUnlock
+          onUnlocked={() => {
+            setIsLoadingStorage(true);
+            setUnlockCount((n) => n + 1);
+          }}
+        />
+      </div>
+    );
+  }
+
+  if (isLoadingRequest || isLoadingStorage || isCheckingStatus) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] space-y-3">
         <Loader2 className="w-8 h-8 text-[#79bab6] animate-spin" />
@@ -160,13 +195,17 @@ export const WalletRespondPage: React.FC = () => {
   }
 
   if (requestError || !request) {
+    // Only a 404 means the link is wrong; anything else (API down, expired) is shown as it is.
+    const requestNotFound = !requestError || (requestError as { error?: { code?: string } }).error?.code === 'NOT_FOUND';
     return (
       <div className="max-w-2xl mx-auto space-y-4 py-8">
         <div className="p-6 rounded-3xl border border-[#fb7185]/30 bg-[#fb7185]/10 space-y-3 text-center">
           <AlertCircle className="w-8 h-8 text-[#fb7185] mx-auto" />
-          <h2 className="text-base font-semibold text-[#f0f7f7]">Verification Request Not Found</h2>
+          <h2 className="text-base font-semibold text-[#f0f7f7]">{requestNotFound ? 'Verification Request Not Found' : 'Could Not Open This Request'}</h2>
           <p className="text-xs text-[#8ea5a8]">
-            This presentation request link may have expired or the verifier request ID is invalid.
+            {requestNotFound
+              ? 'This presentation request link may have expired or the verifier request ID is invalid.'
+              : toUserMessage(requestError)}
           </p>
           <div className="pt-2">
             <NavLink
@@ -213,6 +252,24 @@ export const WalletRespondPage: React.FC = () => {
         </div>
       </div>
 
+      {!verification && statuses.error && (
+        <div className="p-3 rounded-2xl bg-[#ff9f0a]/10 border border-[#ff9f0a]/25 text-[#ff9f0a] text-xs flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span>Could not check your credentials' revocation and key status ({toUserMessage(statuses.error)}). The verifier will check them.</span>
+        </div>
+      )}
+      {!verification && !statuses.error && heldBack > 0 && (
+        <div className="p-3 rounded-2xl bg-[#1a1430] border border-[#231a3d] text-[#8ea5a8] text-xs flex flex-wrap items-center justify-between gap-2">
+          <span>
+            {heldBack} credential{heldBack === 1 ? ' is' : 's are'} not offered here: revoked, waiting for an anchor, replaced, or issued during a key
+            compromise.
+          </span>
+          <NavLink to="/wallet" className="font-semibold text-[#79bab6] hover:underline">
+            Review in your wallet
+          </NavLink>
+        </div>
+      )}
+
       {/* Render Result Card or Consent Screen */}
       {verification ? (
         <PresentationResultCard
@@ -226,7 +283,7 @@ export const WalletRespondPage: React.FC = () => {
       ) : (
         <ConsentScreen
           request={request}
-          localCredentials={localCredentials}
+          localCredentials={presentable}
           onStartProving={handleExecuteProver}
           isProving={isProvingActive}
         />
