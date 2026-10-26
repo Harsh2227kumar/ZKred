@@ -1,72 +1,76 @@
-# V1.1-S2 Plan: Verifier Evaluation Chain Visualizer & Judge-Facing Result Screen
+# V1.1-S3 Master Plan: Natural Language Policy Parse UX & Bedrock Integration
 
 > **Owner:** SPARSH (Frontend & DevOps Lead)  
-> **Task ID:** `V1.1-S2` ⭐  
-> **Branch:** `sparsh/V1.1-S2-eval-chain`  
+> **Task ID:** `V1.1-S3`  
+> **Branch:** `sparsh/V1.1-S3-nl-parse-ux`  
 > **Target:** `dev`  
-> **Objective:** Deliver the primary judge-facing evaluation result screen on `/verifier/requests/:requestId`. Implements the **Evaluation Chain Visualizer** featuring 4 sequential nodes per policy requirement (`Issuer BBS+ Signature` → `Zero-Knowledge Claim` → `On-Chain Revocation` → `Key-Epoch / Batch Anchor`) converging into the final "Verified Portable Credential" badge. Ensures red failed nodes display human-friendly diagnostic explanations, renders revealed attributes, embeds a high-impact "Never Received: Name, DOB, Address" privacy panel, and provides an interactive QR code for mobile respondent flows.
+> **Objective:** Deliver the complete Natural Language Policy Compiler UX on `/verifier`. Transforms plain English verification requirements into cryptographic presentation policies using AWS Bedrock Claude Sonnet (`POST /presentation-requests/parse`), displays compiled policies as interactive readable chips, showcases data minimisation notes, handles `POLICY_AMBIGUOUS` clarifying questions with guided edit-and-retry, and seamlessly connects into request creation.
 
 ---
 
-## 1. Context & Role in Demo
+## 1. Problem Statement & Judge Context
 
-In Problem Statement 3 (CASCADE '26), judges evaluate whether credentials are truly user-controlled, zero-knowledge, and tamper-resistant under key breach scenarios.
-The **Verifier Result Page** (`/verifier/requests/:requestId`) is the climactic **judge-facing screen**:
-1. **Interactive Evaluation Pipeline**:
-   - For every requirement in the presentation policy (e.g. AIIMS MBBS Degree, MMC Medical License, UIDAI Age $\ge 21$):
-     - **Node 1: Issuer Signature** — Proves the BBS+ signature is mathematically valid under an accredited institution's active key.
-     - **Node 2: Zero-Knowledge Claim** — Proves attribute criteria (Age $\ge 21$) via Groth16 zk-SNARK or selective disclosure matching without revealing raw PII.
-     - **Node 3: On-Chain Revocation** — Checks the 16k status list bitstring hash against the immutable on-chain hash pinned on Base Sepolia.
-     - **Node 4: Key-Epoch & Batch Anchor** — Verifies batch Merkle root inclusion at block time, ensuring issuance occurred before any compromise cutoff.
-2. **Friendly Diagnosis for Failed Checks**:
-   - If a credential is forged, revoked, or anchored inside a breach window, the specific failed node turns red with crystal-clear human explanations (e.g. `KEY_COMPROMISED_ANCHORED_IN_WINDOW` → *"Anchored after the key's compromise cutoff during the 48-hour breach window"*).
-3. **Ironclad Privacy Invariant Display**:
-   - Explicitly displays the **"Never Received by Verifier"** panel highlighting that Name, Date of Birth, and Home Address were never transmitted over the wire.
-4. **Live Polling & Mobile Engagement**:
-   - Embeds a sleek QR code (`qrcode.react`) so judges can open the request on their mobile phones while the screen polls every 2 seconds and animates upon submission.
+In **Problem Statement 3 (CASCADE '26)**, verifiers must specify complex zero-knowledge selective disclosure and ZK range constraints without requiring manual cryptographic engineering.
+Under Task `V1.1-H3`, HARSH deployed the Claude Sonnet Bedrock pipeline (`backend/src/ai/policy.ts`), which converts plain-English sentences into strictly validated `PresentationPolicy` schemas via forced tool calls, returning `consent_summary` and `minimisation_notes`, or throwing `422 POLICY_AMBIGUOUS` with clarifying questions.
 
----
-
-## 2. Strict Rules & Constraints (`AGENTS.md`)
-
-1. **Folder Ownership (`AGENTS.md` §1)**:
-   - SPARSH owns: `frontend/`, `docs/`, `md/progress/SPARSH-PROGRESS.md`.
-   - Never edit backend or smart contracts.
-2. **Zero Hardcoded Data (`AGENTS.md` §2)**:
-   - Data consumed exclusively via `usePresentationRequest` and `useVerifications`.
-   - Steps and statuses mirror `md/CONTRACTS.md` §2 and `/meta/enums`.
-   - Zero mock verification results.
-3. **Rich Aesthetics & WOW Factor**:
-   - Premium dark-mode glassmorphic styling (#130e24, #090614, #231a3d borders).
-   - Curated palette: Teal (#06838d), Mint (#79bab6), Emerald (#10b981), Rose (#fb7185).
-   - Smooth animated stage connectors and hover states.
+The goal of **`V1.1-S3`** is to build the front-facing user experience:
+1. **Interactive Readable Chips**:
+   - Visual inspection of the compiled policy broken down into:
+     - Credential Type chips
+     - Revealed Attributes chips (selective disclosure)
+     - Zero-Knowledge Predicate chips (e.g. `Age ≥ 21` via Groth16)
+     - Equality Constraints chips (e.g. `degree_name == MBBS`)
+     - Never-Collected PII guardrails (e.g. `holder_name`, `dob`, `address` marked with lock icons)
+2. **Data Minimisation Rationale (`minimisation_notes`)**:
+   - Clear visual card showcasing what Bedrock intentionally withheld or proved in zero-knowledge to protect holder privacy (e.g. *"Date of birth not requested: age ≥ 21 is proven with a zero-knowledge proof instead"*).
+3. **Ambiguity Resolution Flow (`POLICY_AMBIGUOUS`)**:
+   - When the employer prompt is too vague or incomplete, Claude returns clarifying questions (`questions[]`).
+   - The UI surfaces these questions in an interactive card with single-click suggested additions and an instant edit-and-retry input.
+4. **Seamless Creation & Edit-and-Retry**:
+   - Verifiers can either:
+     - 1-Click publish the AI-compiled policy directly to `POST /presentation-requests`.
+     - Or click "Customize in Visual Builder" to pre-fill the form and adjust individual constraints.
 
 ---
 
-## 3. Architecture & File Breakdown
+## 2. Component Architecture
 
 ```text
 frontend/src/features/verifier/
 ├── components/
-│   ├── EvalChainVisualizer.tsx       # 4-node evaluation chain per requirement & status connectors
-│   ├── StepErrorDiagnosis.ts         # Code-to-friendly-text mapping for all 17 verification error codes
-│   ├── PrivacyInvariantPanel.tsx     # High-impact "Never Received: Name, DOB, Address" breakdown
-│   ├── VerificationQRCodeModal.tsx   # Interactive modal/card rendering QR code for mobile respondent flow
-│   └── VerificationStages.tsx        # Orchestrates live polling & links into EvalChainVisualizer
+│   ├── CompiledPolicyChips.tsx       # Visual card rendering requirements as chips & never-collect PII
+│   ├── MinimisationNotesCard.tsx     # Explains privacy guarantees & what was withheld/proven
+│   ├── AmbiguityQuestionsCard.tsx    # Displays 422 POLICY_AMBIGUOUS questions & quick-resolve suggestions
+│   ├── PolicyPromptTemplates.tsx     # One-click demo prompts (Doctor qualification, Engineer, Ambiguous test)
+│   ├── ManualPolicyBuilder.tsx       # Updated to sync bi-directionally with AI compiled policy
+│   └── VerificationStages.tsx        # (From V1.1-S2)
 └── pages/
-    └── RequestDetailPage.tsx         # Route component with breadcrumbs, policy spec, and judge screen
+    └── VerifierPage.tsx              # Host page coordinating NL compile, ambiguity handling, and visual builder
 ```
+
+---
+
+## 3. Strict Rules & Constraints (`AGENTS.md`)
+
+1. **Folder Ownership (`AGENTS.md` §1)**:
+   - SPARSH owns: `frontend/`, `docs/`, `md/progress/SPARSH-PROGRESS.md`.
+   - Never touch backend code or smart contracts.
+2. **Zero Hardcoded Data (`AGENTS.md` §2)**:
+   - All credential types, issuer kinds, and verification steps come from `/meta/enums` and `/meta/credential-schemas`.
+   - AI outputs come exclusively from `POST /presentation-requests/parse`.
+   - Zero mock responses or fake policy objects.
+3. **Fail-Closed & Error Safety**:
+   - `502 AI_UNAVAILABLE` → Graceful banner with one-click switch to the Visual Builder.
+   - `422 POLICY_AMBIGUOUS` → Friendly guided questions card with edit-and-retry.
 
 ---
 
 ## 4. Verification & Testing Gates
 
-1. **Automated Quality Checks**:
-   - `pnpm --filter frontend typecheck`: 0 errors.
-   - `pnpm --filter frontend build`: Clean production bundle.
-   - `bash scripts/check-hardcoded.sh`: OK.
-2. **Demo Verification Flow**:
-   - Verify that polling accurately picks up presentations submitted by Asha or Rohan.
-   - Confirm all 4 evaluation nodes render green on valid presentations.
-   - Verify that all revealed fields match policy specifications.
-   - Verify that mobile QR code encodes the valid `wallet_url`.
+1. **TypeScript Typecheck**: `pnpm --filter frontend typecheck` passing with 0 errors.
+2. **Hardcoded Scan**: `bash scripts/check-hardcoded.sh` passing.
+3. **Frontend Production Build**: `pnpm --filter frontend build` compiling cleanly.
+4. **End-to-End Compile Flow**:
+   - Test canonical employer sentence: *"Verify the candidate holds an accredited MBBS Degree and is at least 21 years old without revealing name or date of birth"*.
+   - Verify chips, minimisation notes, and consent summary render properly.
+   - Test ambiguous input (e.g. *"Verify eligibility"*) and verify clarifying questions appear.

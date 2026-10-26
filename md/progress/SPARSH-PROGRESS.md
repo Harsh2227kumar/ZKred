@@ -3,8 +3,8 @@
 **Role:** Frontend · DevOps (Docker, EC2, Caddy, Bedrock access) · seed pipeline · QA · docs · pitch
 **Owns:** `frontend/`, `infra/`, `docker-compose.yml`, `scripts/`, `seed/`, `docs/`, `.github/`, `README.md`, `*.env.example`
 **AI tools:** Antigravity / opencode (free models). Always paste the task ID + its numbered steps from `md/VERSION-PLAN.md`; never let the agent write crypto.
-**Current branch:** `sparsh/V1.1-S2-eval-chain`
-**Current task:** `V1.1-S2` (Verifier Result Page: the evaluation chain visualizer & judge-facing screen)
+**Current branch:** `sparsh/V1.1-S3-nl-parse-ux`
+**Current task:** `V1.1-S3` (NL parse UX: readable chips, minimisation_notes, POLICY_AMBIGUOUS questions, edit-and-retry)
 
 > Only SPARSH (and SPARSH's AI agent) edits this file. Append; don't rewrite history.
 > Read the bottom of this file aloud at every sync.
@@ -29,6 +29,7 @@
 | V1-S5 | Wallet respond page shell (presentation request, consent tiers, credential matching) | DONE | #31 |
 | V1.1-S1 | Live in-browser ZK presentation prover & submission flow | DONE | #33 |
 | V1.1-S2 | Verifier Result Page: eval chain visualizer, diagnostic error mapping & privacy panel | DONE | #34 |
+| V1.1-S3 | NL parse UX: readable chips, minimisation notes, POLICY_AMBIGUOUS questions, edit-and-retry | DONE | #35 |
 
 ## Blocked on
 
@@ -74,6 +75,7 @@ Format: `HH:MM | TASK-ID | STARTED/DONE/BLOCKED/HANDOFF | what happened | files`
 - 04:42 | V1-FIXES | DONE | Solved audit bugs: fail-closed BBS+ check on missing issuer pubkey in WalletInbox, full key status badge in CredentialCard, equality constraints credential matching + National ID display in ConsentScreen | frontend/src/features/wallet/
 - 05:10 | V1.1-S1 | DONE | Implemented live in-browser ZK presentation prover, animated multi-stage ProvingProgressModal, fetchBatchLeaves API query, and PresentationResultCard with 4-stage evaluation verdict | frontend/src/features/wallet/, frontend/src/api/queries/
 - 05:25 | V1.1-S2 | DONE | 4-node evaluation chain visualizer, diagnostic mapping for all 17 error codes, "Never Received: Name, DOB, Address" privacy invariant panel, mobile QR code with qrcode.react, and converging Verified Portable Credential badge | frontend/src/features/verifier/
+- 05:40 | V1.1-S3 | DONE | Implemented NL policy parse UX: PolicyPromptTemplates (canonical doctor, engineer, ambiguity test), AmbiguityQuestionsCard for 422 POLICY_AMBIGUOUS with interactive retry, CompiledPolicyChips with minimisation notes & 1-click publish | frontend/src/features/verifier/
 
 
 
