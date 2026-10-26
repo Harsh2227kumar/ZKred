@@ -72,7 +72,7 @@ export const IssuerListPage: React.FC = () => {
 
       {/* Content */}
       {isLoading ? (
-        <Loading label="Loading accredited institutions from Base Sepolia..." />
+        <Loading label="Loading accredited institutions from the chain..." />
       ) : error ? (
         <ErrorState error={error} onRetry={() => refetch()} />
       ) : !data?.items || data.items.length === 0 ? (

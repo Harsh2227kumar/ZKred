@@ -22,29 +22,14 @@ import type {
 export function useVerifiers() {
   return useQuery<VerifiersListResponse>({
     queryKey: ['verifiers'],
-    queryFn: async () => {
-      const res = await fetch(`${config.apiBaseUrl}/verifiers`);
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw err;
-      }
-      return res.json() as Promise<VerifiersListResponse>;
-    },
+    queryFn: () => unwrap(apiClient.GET('/verifiers')),
   });
 }
 
 export function usePresentationRequest(requestId?: string) {
   return useQuery<PresentationRequest>({
     queryKey: ['presentation-requests', requestId],
-    queryFn: async () => {
-      if (!requestId) throw new Error('Request ID is required');
-      const res = await fetch(`${config.apiBaseUrl}/presentation-requests/${requestId}`);
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw err;
-      }
-      return res.json() as Promise<PresentationRequest>;
-    },
+    queryFn: () => unwrap(apiClient.GET('/presentation-requests/{request_id}', { params: { path: { request_id: requestId! } } })),
     enabled: Boolean(requestId),
   });
 }
@@ -52,15 +37,8 @@ export function usePresentationRequest(requestId?: string) {
 export function useVerifications(requestId?: string) {
   return useQuery<VerificationsListResponse>({
     queryKey: ['presentation-requests', requestId, 'verifications'],
-    queryFn: async () => {
-      if (!requestId) throw new Error('Request ID is required');
-      const res = await fetch(`${config.apiBaseUrl}/presentation-requests/${requestId}/verifications`);
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw err;
-      }
-      return res.json() as Promise<VerificationsListResponse>;
-    },
+    queryFn: () =>
+      unwrap(apiClient.GET('/presentation-requests/{request_id}/verifications', { params: { path: { request_id: requestId! } } })),
     enabled: Boolean(requestId),
     refetchInterval: 2000, // Poll every 2 seconds per CONTRACTS §3.4
   });

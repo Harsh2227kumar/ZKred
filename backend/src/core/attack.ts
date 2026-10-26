@@ -23,7 +23,7 @@ import { validateClaims } from "./claims";
 import { AppError } from "./errors";
 import { anchorBatch, createStatusList } from "./issuance";
 import { openBbsSecretKey, withIssuerLock } from "./issuers";
-import { createSources, verifyPresentation, type VerificationMode } from "./verifier";
+import { createSources, verifyPresentation, type VerificationMode, type VerifierSources } from "./verifier";
 
 const FORGED_TYPE = "Degree" as const;
 /** "No size limit" for the batch lookup: the attacker stuffs the open batch whatever its size. */
@@ -76,7 +76,10 @@ export async function stealKey(issuerId: string): Promise<StolenKey> {
 export async function forge(input: ForgeIn): Promise<ForgeOut> {
   const claims = validateClaims(FORGED_TYPE, input.claims);
   const stolen = await repo.latestStolenKey(input.issuer_id);
-  if (!stolen) throw new AppError("CONFLICT", "Steal this issuer's key first");
+  if (!stolen) {
+    if (!(await issuersRepo.findIssuer(input.issuer_id))) throw new AppError("NOT_FOUND", "Issuer not found");
+    throw new AppError("CONFLICT", "Steal this issuer's key first");
+  }
   const forgedSetId = randomUUID();
 
   const batchId = await withIssuerLock(input.issuer_id, async () => {
@@ -130,55 +133,66 @@ export async function forge(input: ForgeIn): Promise<ForgeOut> {
   return { forged_set_id: forgedSetId, forged_count: input.count, batch_id: batchId, anchor_tx_hash: anchorTxHash };
 }
 
+/** What one verify-forged run shares across forgeries: the policy, the mode and memoised engine reads. */
+interface RunCtx {
+  policy: PresentationPolicy;
+  mode: VerificationMode;
+  sources: VerifierSources;
+}
+
+/**
+ * "OK" or the code of the first failing step for one forgery, from the real engine. The presentation is what a holder's
+ * wallet would send (buildPresentation minus its own signature pre-check, which the engine repeats anyway): a
+ * nonce-bound disclosure plus the commitment's Merkle path. Unexpected errors propagate: a run never counts a
+ * forgery as rejected because something broke.
+ */
+async function forgeryVerdict(run: RunCtx, cred: SignedCredential, publicKey: Uint8Array | null, batchLeaves: Hex32[]): Promise<string> {
+  // No published key: no proof can be derived, and the engine's first step fails the same way.
+  if (!publicKey) return "KEY_UNKNOWN";
+  const requirement = run.policy.requirements[0]!;
+  const nonce = randomBytes(32);
+  const { disclosed, bbsProof } = await deriveDisclosure(cred, publicKey, revealFieldsFor(requirement), nonce);
+  const commitment = (cred.values.commitment ?? "").toLowerCase() as Hex32;
+  // Not in any batch we hold: an empty path, and the engine says why (never anchored / not in the anchored root).
+  const inBatch = batchLeaves.some((l) => l.toLowerCase() === commitment);
+  const presentation: Presentation = {
+    request_id: randomUUID(),
+    nonce: nonce.toString("base64url"),
+    items: [
+      {
+        requirement_id: requirement.id,
+        credential_type: cred.type,
+        issuer_did: cred.issuer_did,
+        key_id: cred.key_id,
+        disclosed,
+        bbs_proof: Buffer.from(bbsProof).toString("base64url"),
+        merkle_proof: inBatch ? merkleProof(batchLeaves, commitment) : [],
+        age_proof: null,
+      },
+    ],
+  };
+  const outcome = await verifyPresentation({ nonce: presentation.nonce, policy: run.policy }, presentation, run.mode, run.sources);
+  return outcome.result === "accepted" ? "OK" : (outcome.steps.find((s) => !s.ok)?.code ?? "REJECTED");
+}
+
 export async function verifyForged(mode: VerificationMode): Promise<AttackRunOut> {
   const forgeries = await repo.listForgeries();
-  const policy = degreeCheckPolicy();
-  const sources = createSources();
-  const requirement = policy.requirements[0]!;
-  const keys = new Map<string, Uint8Array>();
+  const run: RunCtx = { policy: degreeCheckPolicy(), mode, sources: createSources() };
+  const keys = new Map<string, Uint8Array | null>();
   const leaves = new Map<string, Hex32[]>();
   const byCode: Record<string, number> = {};
   let accepted = 0;
 
   for (const row of forgeries) {
     const cred = row.credential as SignedCredential;
-    const batchId = cred.values.batch_id as Hex32;
+    const batchId = cred.values.batch_id ?? "";
     if (!keys.has(cred.key_id)) {
-      const key = await sources.key(cred.key_id);
-      if (key) keys.set(cred.key_id, new Uint8Array(Buffer.from(key.publicKey, "base64url")));
+      const key = await run.sources.key(cred.key_id);
+      keys.set(cred.key_id, key ? new Uint8Array(Buffer.from(key.publicKey, "base64url")) : null);
     }
     if (!leaves.has(batchId)) leaves.set(batchId, ((await issuanceRepo.findBatch(batchId))?.leaves ?? []) as Hex32[]);
 
-    const nonce = randomBytes(32);
-    const request = { nonce: nonce.toString("base64url"), policy };
-    let code: string;
-    try {
-      // What a holder's wallet would send (buildPresentation minus its own signature pre-check, which the
-      // engine repeats anyway): a nonce-bound disclosure plus the commitment's Merkle path.
-      const key = keys.get(cred.key_id);
-      if (!key) throw new Error("unknown key");
-      const { disclosed, bbsProof } = await deriveDisclosure(cred, key, revealFieldsFor(requirement), nonce);
-      const presentation: Presentation = {
-        request_id: randomUUID(),
-        nonce: request.nonce,
-        items: [
-          {
-            requirement_id: requirement.id,
-            credential_type: cred.type,
-            issuer_did: cred.issuer_did,
-            key_id: cred.key_id,
-            disclosed,
-            bbs_proof: Buffer.from(bbsProof).toString("base64url"),
-            merkle_proof: merkleProof(leaves.get(batchId) ?? [], cred.values.commitment as Hex32),
-            age_proof: null,
-          },
-        ],
-      };
-      const outcome = await verifyPresentation(request, presentation, mode, sources);
-      code = outcome.result === "accepted" ? "OK" : (outcome.steps.find((s) => !s.ok)?.code ?? "REJECTED");
-    } catch {
-      code = "MERKLE_PROOF_INVALID"; // no presentation can be built: the forgery is not in any batch we know
-    }
+    const code = await forgeryVerdict(run, cred, keys.get(cred.key_id) ?? null, leaves.get(batchId) ?? []);
     if (code === "OK") accepted++;
     else byCode[code] = (byCode[code] ?? 0) + 1;
   }
