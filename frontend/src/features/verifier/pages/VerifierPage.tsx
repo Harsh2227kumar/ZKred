@@ -20,12 +20,13 @@ import { AmbiguityQuestionsCard } from '../components/AmbiguityQuestionsCard';
 import { CompiledPolicyChips } from '../components/CompiledPolicyChips';
 import type { ParseOut, PresentationRequest } from '@/api/schemas';
 import { toast } from 'sonner';
+import { toUserMessage } from '@/api/client';
 
 export const VerifierPage: React.FC = () => {
   const navigate = useNavigate();
   const builderSectionRef = useRef<HTMLDivElement>(null);
 
-  const { data: verifiersData, isLoading: isLoadingVerifiers } = useVerifiers();
+  const { data: verifiersData, isLoading: isLoadingVerifiers, error: verifiersError, refetch: refetchVerifiers } = useVerifiers();
   const parsePolicyMutation = useParsePolicy();
   const createRequestMutation = useCreateRequest();
 
@@ -152,14 +153,23 @@ export const VerifierPage: React.FC = () => {
         </div>
 
         {/* Verifier Department Selector */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-[#231a3d] bg-[#130e24]">
-            <Building2 className="w-4 h-4 text-[#79bab6]" />
+        <div className="flex items-center gap-2 min-w-0">
+          {verifiersError ? (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-[#ff453a]/30 bg-[#ff453a]/10 text-xs text-[#ff453a] min-w-0">
+              <span className="truncate">Could not load verifiers: {toUserMessage(verifiersError)}</span>
+              <button type="button" onClick={() => refetchVerifiers()} className="font-semibold underline shrink-0">
+                Retry
+              </button>
+            </div>
+          ) : (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-[#231a3d] bg-[#130e24] min-w-0">
+            <Building2 className="w-4 h-4 text-[#79bab6] shrink-0" />
             <select
               value={activeVerifierId}
               onChange={(e) => setSelectedVerifierId(e.target.value)}
               disabled={isLoadingVerifiers || verifiers.length === 0}
-              className="bg-transparent text-xs text-[#f0f7f7] focus:outline-hidden cursor-pointer"
+              aria-label="Verifier"
+              className="bg-transparent text-xs text-[#f0f7f7] focus:outline-hidden cursor-pointer min-w-0 max-w-full truncate"
             >
               {verifiers.map((v) => (
                 <option key={v.id} value={v.id} className="bg-[#130e24] text-[#f0f7f7]">
@@ -173,11 +183,13 @@ export const VerifierPage: React.FC = () => {
               )}
             </select>
           </div>
+          )}
 
           <button
             type="button"
             onClick={() => setIsCreateModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-white bg-[#06838d] hover:bg-[#046168] transition-colors cursor-pointer"
+            aria-label="New verifier"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-white bg-[#06838d] hover:bg-[#046168] transition-colors cursor-pointer shrink-0"
           >
             <Plus className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">New Verifier</span>

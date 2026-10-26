@@ -4,6 +4,7 @@ import { X, GraduationCap, Loader2, Plus, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCreateIssuer } from '@/api/queries/issuers';
 import { useEnums } from '@/api/queries/meta';
+import { ChainName } from '@/components/common/ChainName';
 import { toUserMessage } from '@/api/client';
 import { hasAdminToken } from '@/lib/storage/session-token';
 import type { IssuerKind } from '@/api/schemas';
@@ -70,7 +71,7 @@ export const CreateIssuerDialog: React.FC<CreateIssuerDialogProps> = ({
             </div>
             <div>
               <h2 className="text-base font-semibold text-[#f0f7f7]">Register New Institution</h2>
-              <p className="text-xs text-[#8ea5a8]">Generates governance wallet & BBS keys on Base Sepolia</p>
+              <p className="text-xs text-[#8ea5a8]">Generates governance wallet & BBS keys on <ChainName /></p>
             </div>
           </div>
           <button
