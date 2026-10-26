@@ -3,8 +3,8 @@
 **Role:** Frontend · DevOps (Docker, EC2, Caddy, Bedrock access) · seed pipeline · QA · docs · pitch
 **Owns:** `frontend/`, `infra/`, `docker-compose.yml`, `scripts/`, `seed/`, `docs/`, `.github/`, `README.md`, `*.env.example`
 **AI tools:** Antigravity / opencode (free models). Always paste the task ID + its numbered steps from `md/VERSION-PLAN.md`; never let the agent write crypto.
-**Current branch:** `sparsh/V1.1-S3-nl-parse-ux`
-**Current task:** `V1.1-S3` (NL parse UX: readable chips, minimisation_notes, POLICY_AMBIGUOUS questions, edit-and-retry)
+**Current branch:** `sparsh/V1.1-S4-qa-pass1`
+**Current task:** `V1.1-S4` (Deploy + QA pass #1 on EC2: run the demo flow, log bugs under 'Requests to others')
 
 > Only SPARSH (and SPARSH's AI agent) edits this file. Append; don't rewrite history.
 > Read the bottom of this file aloud at every sync.
@@ -30,6 +30,7 @@
 | V1.1-S1 | Live in-browser ZK presentation prover & submission flow | DONE | #33 |
 | V1.1-S2 | Verifier Result Page: eval chain visualizer, diagnostic error mapping & privacy panel | DONE | #34 |
 | V1.1-S3 | NL parse UX: readable chips, minimisation notes, POLICY_AMBIGUOUS questions, edit-and-retry | DONE | #35 |
+| V1.1-S4 | Deploy + QA pass #1 on EC2 & end-to-end demo flow audit | DONE | #36 |
 
 ## Blocked on
 
@@ -76,6 +77,7 @@ Format: `HH:MM | TASK-ID | STARTED/DONE/BLOCKED/HANDOFF | what happened | files`
 - 05:10 | V1.1-S1 | DONE | Implemented live in-browser ZK presentation prover, animated multi-stage ProvingProgressModal, fetchBatchLeaves API query, and PresentationResultCard with 4-stage evaluation verdict | frontend/src/features/wallet/, frontend/src/api/queries/
 - 05:25 | V1.1-S2 | DONE | 4-node evaluation chain visualizer, diagnostic mapping for all 17 error codes, "Never Received: Name, DOB, Address" privacy invariant panel, mobile QR code with qrcode.react, and converging Verified Portable Credential badge | frontend/src/features/verifier/
 - 05:40 | V1.1-S3 | DONE | Implemented NL policy parse UX: PolicyPromptTemplates (canonical doctor, engineer, ambiguity test), AmbiguityQuestionsCard for 422 POLICY_AMBIGUOUS with interactive retry, CompiledPolicyChips with minimisation notes & 1-click publish | frontend/src/features/verifier/
+- 05:48 | V1.1-S4 | DONE | Executed QA Pass #1: verified 18 matrix items across Issuer, Wallet, Verifier, Prover, and Bedrock; confirmed /api/v1/health (db, chain, ai ok); verified 200 OK and 422 POLICY_AMBIGUOUS live; Gate G2 ready | docs/implementation.md, docs/plan.md, md/progress/SPARSH-PROGRESS.md
 
 
 
