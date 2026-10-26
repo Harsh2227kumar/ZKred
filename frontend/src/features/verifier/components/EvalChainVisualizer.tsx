@@ -16,7 +16,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import type { PresentationRequest, Verification } from '@/api/schemas';
-import { getStepErrorDiagnosis } from './StepErrorDiagnosis';
+import { getStepErrorDiagnosis } from '@/components/common/step-error-diagnosis';
 
 interface EvalChainVisualizerProps {
   request: PresentationRequest;
