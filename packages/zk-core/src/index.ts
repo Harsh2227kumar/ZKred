@@ -32,6 +32,7 @@ export {
   encodeMessages,
   signCredential,
   verifyCredential,
+  credentialDigest,
   deriveDisclosure,
   verifyDisclosure,
 } from "./bbs";
