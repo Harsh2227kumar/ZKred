@@ -3,8 +3,8 @@
 **Role:** Frontend · DevOps (Docker, EC2, Caddy, Bedrock access) · seed pipeline · QA · docs · pitch
 **Owns:** `frontend/`, `infra/`, `docker-compose.yml`, `scripts/`, `seed/`, `docs/`, `.github/`, `README.md`, `*.env.example`
 **AI tools:** Antigravity / opencode (free models). Always paste the task ID + its numbered steps from `md/VERSION-PLAN.md`; never let the agent write crypto.
-**Current branch:** `sparsh/V1.1-S1-respond-flow`
-**Current task:** `V1.1-S1` (Respond page: live in-browser ZK presentation prover & submission)
+**Current branch:** `sparsh/V1.1-S2-eval-chain`
+**Current task:** `V1.1-S2` (Verifier Result Page: the evaluation chain visualizer & judge-facing screen)
 
 > Only SPARSH (and SPARSH's AI agent) edits this file. Append; don't rewrite history.
 > Read the bottom of this file aloud at every sync.
@@ -28,6 +28,7 @@
 | V1-S4 | Seed pipeline v1 (seed/*.json, scripts/seed.ts, idempotent demo state) | DONE | #30 |
 | V1-S5 | Wallet respond page shell (presentation request, consent tiers, credential matching) | DONE | #31 |
 | V1.1-S1 | Live in-browser ZK presentation prover & submission flow | DONE | #33 |
+| V1.1-S2 | Verifier Result Page: eval chain visualizer, diagnostic error mapping & privacy panel | DONE | #34 |
 
 ## Blocked on
 
@@ -72,6 +73,7 @@ Format: `HH:MM | TASK-ID | STARTED/DONE/BLOCKED/HANDOFF | what happened | files`
 - 04:25 | V1-VERIFY | DONE | Verified all V1 tasks (V1-S1 through V1-S5); hardened scripts/seed.ts check authorization headers for idempotency; confirmed 100% typecheck, build, check-hardcoded passing and Gate G1 ready | scripts/seed.ts, md/progress/SPARSH-PROGRESS.md
 - 04:42 | V1-FIXES | DONE | Solved audit bugs: fail-closed BBS+ check on missing issuer pubkey in WalletInbox, full key status badge in CredentialCard, equality constraints credential matching + National ID display in ConsentScreen | frontend/src/features/wallet/
 - 05:10 | V1.1-S1 | DONE | Implemented live in-browser ZK presentation prover, animated multi-stage ProvingProgressModal, fetchBatchLeaves API query, and PresentationResultCard with 4-stage evaluation verdict | frontend/src/features/wallet/, frontend/src/api/queries/
+- 05:25 | V1.1-S2 | DONE | 4-node evaluation chain visualizer, diagnostic mapping for all 17 error codes, "Never Received: Name, DOB, Address" privacy invariant panel, mobile QR code with qrcode.react, and converging Verified Portable Credential badge | frontend/src/features/verifier/
 
 
 
