@@ -5,14 +5,21 @@ import {
   ShieldCheck,
   Lock,
   LogOut,
+  AlertCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 import { Hex } from '@/components/common/Hex';
 import { Loading } from '@/components/common/Loading';
+import { toUserMessage } from '@/api/client';
 import { useIssuers } from '@/api/queries/issuers';
+import { requestReissue } from '@/api/queries/wallets';
 import {
   getWalletMetadata,
   getStoredCredentials,
+  getReplacedCommitments,
+  markCredentialReplaced,
+  removeStoredCredential,
   clearWalletStore,
   type WalletMetadata,
 } from '@/lib/wallet-store';
@@ -21,15 +28,27 @@ import { WalletSetup } from '../components/WalletSetup';
 import { WalletInbox } from '../components/WalletInbox';
 import { CredentialList } from '../components/CredentialList';
 import { BackupModal } from '../components/BackupModal';
+import { syncEncryptedBackup } from '../backup-sync';
+import { credentialKey, useCredentialStatuses } from '../hooks/useCredentialStatus';
+
+/** The API's answer when this credential was already refreshed (e.g. from another browser). */
+const isAlreadyReissued = (err: unknown): boolean => {
+  const e = (err as { error?: { code?: string; message?: string } })?.error;
+  return e?.code === 'CONFLICT' && /already re-issued/i.test(e.message ?? '');
+};
 
 export const WalletPage: React.FC = () => {
   const [meta, setMeta] = useState<WalletMetadata | null>(null);
   const [credentials, setCredentials] = useState<SignedCredential[]>([]);
+  const [replaced, setReplaced] = useState<string[]>([]);
+  const [refreshingKey, setRefreshingKey] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
   const [showBackupModal, setShowBackupModal] = useState(false);
 
+  const queryClient = useQueryClient();
   const { data: issuersData } = useIssuers();
   const issuers = issuersData?.items || [];
+  const statuses = useCredentialStatuses(credentials, replaced);
 
   const loadLocalWallet = useCallback(async () => {
     try {
@@ -38,6 +57,7 @@ export const WalletPage: React.FC = () => {
       if (storedMeta) {
         const storedCreds = await getStoredCredentials();
         setCredentials(storedCreds);
+        setReplaced(await getReplacedCommitments());
       }
     } catch (err) {
       console.error('Failed to load wallet from IndexedDB:', err);
@@ -49,6 +69,52 @@ export const WalletPage: React.FC = () => {
   useEffect(() => {
     loadLocalWallet();
   }, [loadLocalWallet]);
+
+  /** Local change → encrypted backup; a locked wallet asks for the passphrase instead. */
+  const backUp = async () => {
+    if (!meta) return;
+    try {
+      if (!(await syncEncryptedBackup(meta.id, meta.wallet_token))) setShowBackupModal(true);
+    } catch (err) {
+      toast.error(toUserMessage(err, 'Could not update the encrypted backup.'));
+    }
+  };
+
+  /**
+   * Breach recovery: the issuer checks this credential against its own records and re-signs the same claims with its
+   * new key. The fresh copy arrives as a normal offer in the inbox; this one is marked replaced and never presented.
+   */
+  const handleRefresh = async (credential: SignedCredential) => {
+    const issuer = issuers.find((i) => i.did === credential.issuer_did);
+    if (!meta || !issuer) return;
+    const key = credentialKey(credential);
+    setRefreshingKey(key);
+    try {
+      try {
+        await requestReissue(issuer.id, meta.wallet_token, {
+          wallet_id: meta.id,
+          old_credential: credential as Parameters<typeof requestReissue>[2]['old_credential'],
+        });
+      } catch (err) {
+        if (!isAlreadyReissued(err)) throw err;
+      }
+      setReplaced(await markCredentialReplaced(key));
+      await queryClient.invalidateQueries({ queryKey: ['wallets', meta.id, 'offers'] });
+      toast.success('Refresh requested', { description: `${issuer.name} re-signed it with its new key. Claim the fresh copy from your inbox.` });
+      await backUp();
+    } catch (err) {
+      toast.error(toUserMessage(err, 'The issuer could not refresh this credential.'));
+    } finally {
+      setRefreshingKey(null);
+    }
+  };
+
+  const handleRemove = async (credential: SignedCredential) => {
+    if (!window.confirm('Remove this replaced copy from this device? Your refreshed copy is not affected.')) return;
+    setCredentials(await removeStoredCredential(credentialKey(credential)));
+    setReplaced(await getReplacedCommitments());
+    await backUp();
+  };
 
   const handleForgetWallet = async () => {
     if (
@@ -131,7 +197,26 @@ export const WalletPage: React.FC = () => {
               </span>
             </div>
 
-            <CredentialList credentials={credentials} issuers={issuers} />
+            {statuses.error && (
+              <div className="p-3 rounded-2xl bg-[#ff453a]/10 border border-[#ff453a]/25 text-[#ff453a] text-xs flex items-start justify-between gap-3">
+                <span className="inline-flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" /> Could not check your credentials' status: {toUserMessage(statuses.error)}
+                </span>
+                <button type="button" onClick={() => statuses.refetch()} className="font-semibold underline shrink-0">
+                  Retry
+                </button>
+              </div>
+            )}
+
+            <CredentialList
+              credentials={credentials}
+              issuers={issuers}
+              statuses={statuses.data}
+              statusUnavailable={Boolean(statuses.error) && !statuses.data}
+              refreshingKey={refreshingKey}
+              onRefresh={handleRefresh}
+              onRemove={handleRemove}
+            />
           </div>
 
           {/* Sidebar: Inbox & Security */}
