@@ -3,8 +3,8 @@
 **Role:** Frontend · DevOps (Docker, EC2, Caddy, Bedrock access) · seed pipeline · QA · docs · pitch
 **Owns:** `frontend/`, `infra/`, `docker-compose.yml`, `scripts/`, `seed/`, `docs/`, `.github/`, `README.md`, `*.env.example`
 **AI tools:** Antigravity / opencode (free models). Always paste the task ID + its numbered steps from `md/VERSION-PLAN.md`; never let the agent write crypto.
-**Current branch:** `sparsh/V1-S5-wallet-respond`
-**Current task:** `V1-S5` (Wallet respond page shell)
+**Current branch:** `sparsh/V1.1-S1-respond-flow`
+**Current task:** `V1.1-S1` (Respond page: live in-browser ZK presentation prover & submission)
 
 > Only SPARSH (and SPARSH's AI agent) edits this file. Append; don't rewrite history.
 > Read the bottom of this file aloud at every sync.
@@ -27,6 +27,7 @@
 | V1-S3 | Verifier portal (verifier create, manual policy builder, polling) | DONE | #28 |
 | V1-S4 | Seed pipeline v1 (seed/*.json, scripts/seed.ts, idempotent demo state) | DONE | #30 |
 | V1-S5 | Wallet respond page shell (presentation request, consent tiers, credential matching) | DONE | #31 |
+| V1.1-S1 | Live in-browser ZK presentation prover & submission flow | DONE | #33 |
 
 ## Blocked on
 
@@ -68,6 +69,11 @@ Format: `HH:MM | TASK-ID | STARTED/DONE/BLOCKED/HANDOFF | what happened | files`
 - 02:35 | V1-S3 | DONE | Implemented Verifier Portal: verifier identity registration, natural language policy compiler (with graceful fallback banner), Visual Policy Builder with selective disclosure and ZK age predicates, Request Detail inspection with 4-stage evaluation pipeline visualizer and 2s live polling; typecheck, build & check-hardcoded green | frontend/src/features/verifier/, frontend/src/api/
 - 03:26 | V1-S4 | DONE | Implemented idempotent seed pipeline: seed/issuers.json (AIIMS Nagpur MBBS, IIIT Nagpur B.Tech, MMC, UIDAI), seed/holders.json (Asha, Rohan), seed/credentials.json, seed/verifiers.json, scripts/config.ts, scripts/seed.ts; verified on Base Sepolia and double-run idempotency | seed/, scripts/
 - 03:42 | V1-S5 | DONE | Implemented Student Wallet Respond page shell: query parameter request loading, local IndexedDB credential matching, 3-tier privacy consent breakdown (selective disclosure, zero-knowledge range proof, never-collect PII guardrails), authorization confirmation dialog; typecheck, build & check-hardcoded green | frontend/src/features/wallet/
+- 04:25 | V1-VERIFY | DONE | Verified all V1 tasks (V1-S1 through V1-S5); hardened scripts/seed.ts check authorization headers for idempotency; confirmed 100% typecheck, build, check-hardcoded passing and Gate G1 ready | scripts/seed.ts, md/progress/SPARSH-PROGRESS.md
+- 04:42 | V1-FIXES | DONE | Solved audit bugs: fail-closed BBS+ check on missing issuer pubkey in WalletInbox, full key status badge in CredentialCard, equality constraints credential matching + National ID display in ConsentScreen | frontend/src/features/wallet/
+- 05:10 | V1.1-S1 | DONE | Implemented live in-browser ZK presentation prover, animated multi-stage ProvingProgressModal, fetchBatchLeaves API query, and PresentationResultCard with 4-stage evaluation verdict | frontend/src/features/wallet/, frontend/src/api/queries/
+
+
 
 ## Notes for the pitch
 

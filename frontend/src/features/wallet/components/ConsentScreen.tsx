@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   Info,
   Check,
+  Loader2,
 } from 'lucide-react';
 import type { PresentationRequest } from '@/api/schemas';
 import type { SignedCredential } from '@/lib/wallet-crypto';
@@ -22,21 +23,30 @@ import { toast } from 'sonner';
 interface ConsentScreenProps {
   request: PresentationRequest;
   localCredentials: SignedCredential[];
+  onStartProving?: () => void;
+  isProving?: boolean;
 }
 
 export const ConsentScreen: React.FC<ConsentScreenProps> = ({
   request,
   localCredentials,
+  onStartProving,
+  isProving = false,
 }) => {
-  const [hasAuthorized, setHasAuthorized] = useState(false);
   const [showConsentModal, setShowConsentModal] = useState(false);
 
   const requirements = request.policy?.requirements || [];
   const neverCollectFields = request.policy?.never_collect || ['holder_name', 'dob', 'address'];
 
-  // Check matching status for each requirement
+  // Check matching status for each requirement (checking credential type and equality constraints)
   const requirementMatches = requirements.map((req) => {
-    const matched = localCredentials.find((c) => c.type === req.credential_type);
+    const matched = localCredentials.find((c) => {
+      if (c.type !== req.credential_type) return false;
+      if (req.equals && req.equals.length > 0) {
+        return req.equals.every((eq) => String(c.values?.[eq.field] ?? '') === eq.value);
+      }
+      return true;
+    });
     return {
       requirement: req,
       matchedCredential: matched || null,
@@ -56,8 +66,9 @@ export const ConsentScreen: React.FC<ConsentScreenProps> = ({
 
   const handleConfirmConsent = () => {
     setShowConsentModal(false);
-    setHasAuthorized(true);
-    toast.success('Disclosure consent authorized! In-browser ZK proof engine staged for V1.1.');
+    if (onStartProving) {
+      onStartProving();
+    }
   };
 
   return (
@@ -148,20 +159,33 @@ export const ConsentScreen: React.FC<ConsentScreenProps> = ({
                     </span>
                   </div>
 
+                  {requirement.equals && requirement.equals.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      {requirement.equals.map((eq) => (
+                        <span
+                          key={eq.field}
+                          className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-[#231a3d] text-[#f0f7f7] border border-[#79bab6]/30"
+                        >
+                          Requires {eq.field} = "{eq.value}"
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
                   {matchedCredential ? (
                     <p className="text-xs text-[#79bab6] mt-1">
                       Matched from wallet:{' '}
                       <span className="font-medium">
                         {matchedCredential.values?.degree_name ||
                           matchedCredential.values?.license_type ||
-                          matchedCredential.values?.id_number ||
+                          (matchedCredential.values?.nationality ? `National ID (${matchedCredential.values.nationality})` : null) ||
                           matchedCredential.type}
                       </span>
                       {matchedCredential.values?.institution && ` (${matchedCredential.values.institution})`}
                     </p>
                   ) : (
                     <p className="text-xs text-[#fb7185] mt-1">
-                      No matching {requirement.credential_type} found in local IndexedDB.
+                      No matching {requirement.credential_type} {requirement.equals?.length ? 'meeting criteria' : ''} found in local IndexedDB.
                     </p>
                   )}
                 </div>
@@ -293,37 +317,32 @@ export const ConsentScreen: React.FC<ConsentScreenProps> = ({
 
       {/* Action / Share Proof Button */}
       <div className="space-y-3">
-        {hasAuthorized ? (
-          <div className="p-4 rounded-2xl border border-[#10b981]/30 bg-[#10b981]/10 flex items-center gap-3 text-xs text-[#10b981]">
-            <CheckCircle2 className="w-5 h-5 shrink-0" />
-            <div>
-              <span className="font-semibold block">Consent Authorized</span>
-              <span>
-                Disclosure consent authorized for {request.verifier_name}. Live browser proof submission arrives with V1.1.
-              </span>
-            </div>
-          </div>
-        ) : (
-          <button
-            type="button"
-            disabled={!allSatisfied}
-            onClick={handleAuthorizeClick}
-            className={`w-full py-3.5 px-4 rounded-2xl font-semibold text-sm transition-all shadow-lg ${
-              allSatisfied
-                ? 'bg-linear-to-r from-[#06838d] to-[#046168] hover:opacity-95 text-white shadow-[#06838d]/20 cursor-pointer'
-                : 'bg-[#06838d]/30 text-[#8ea5a8] border border-[#231a3d] cursor-not-allowed opacity-60'
-            }`}
-          >
-            {allSatisfied ? (
-              <span className="flex items-center justify-center gap-2">
-                <ShieldCheck className="w-4.5 h-4.5" />
-                <span>Authorize & Sign Zero-Knowledge Presentation</span>
-              </span>
-            ) : (
-              <span>Missing Required Credentials in Wallet</span>
-            )}
-          </button>
-        )}
+        <button
+          type="button"
+          disabled={!allSatisfied || isProving}
+          onClick={handleAuthorizeClick}
+          className={`w-full py-3.5 px-4 rounded-2xl font-semibold text-sm transition-all shadow-lg ${
+            isProving
+              ? 'bg-[#06838d]/50 text-white cursor-wait'
+              : allSatisfied
+              ? 'bg-linear-to-r from-[#06838d] to-[#046168] hover:opacity-95 text-white shadow-[#06838d]/20 cursor-pointer'
+              : 'bg-[#06838d]/30 text-[#8ea5a8] border border-[#231a3d] cursor-not-allowed opacity-60'
+          }`}
+        >
+          {isProving ? (
+            <span className="flex items-center justify-center gap-2">
+              <Loader2 className="w-4.5 h-4.5 animate-spin" />
+              <span>Generating Zero-Knowledge Proof...</span>
+            </span>
+          ) : allSatisfied ? (
+            <span className="flex items-center justify-center gap-2">
+              <ShieldCheck className="w-4.5 h-4.5" />
+              <span>Authorize & Sign Zero-Knowledge Presentation</span>
+            </span>
+          ) : (
+            <span>Missing Required Credentials in Wallet</span>
+          )}
+        </button>
 
         {!allSatisfied && (
           <p className="text-center text-xs text-[#fb7185]">
@@ -369,7 +388,7 @@ export const ConsentScreen: React.FC<ConsentScreenProps> = ({
             <div className="p-3 rounded-xl bg-[#06838d]/10 border border-[#06838d]/25 text-xs text-[#79bab6] flex items-start gap-2">
               <Info className="w-4 h-4 shrink-0 mt-0.5" />
               <span>
-                In V1, consent specifications and credential matching are verified. The in-browser prover engine arrives in V1.1.
+                Zero-knowledge proof calculation executes entirely in your browser. Sensitive PII never leaves this device.
               </span>
             </div>
 

@@ -1,108 +1,125 @@
-# V1-S5 Implementation Specification: Student Wallet Respond Page Shell
+# V1.1-S1 Implementation Specification: Student Wallet Live Presentation Prover
 
-> **Module:** `frontend/src/features/wallet/`  
-> **Task ID:** `V1-S5`  
-> **Owner:** SPARSH  
-> **Status:** Implementation Draft
+> **Owner:** SPARSH (Frontend & DevOps Lead)  
+> **Task ID:** `V1.1-S1` ⭐  
+> **Target Files:**
+> - `frontend/src/api/queries/issuers.ts`
+> - `frontend/src/api/queries/verifiers.ts`
+> - `frontend/src/features/wallet/components/ProvingProgressModal.tsx`
+> - `frontend/src/features/wallet/components/PresentationResultCard.tsx`
+> - `frontend/src/features/wallet/components/ConsentScreen.tsx`
+> - `frontend/src/features/wallet/pages/WalletRespondPage.tsx`
+> - `md/progress/SPARSH-PROGRESS.md`
 
 ---
 
-## 1. Component Architecture
+## 1. Technical Data Flow & State Machine
 
-```text
-frontend/src/features/wallet/
-├── pages/
-│   └── WalletRespondPage.tsx     # Route entry /wallet/respond?request=<id>
-└── components/
-    └── ConsentScreen.tsx         # 3-Tier Consent & Disclosure Specification
+```
+[Student clicks "Confirm & Sign"]
+             │
+             ▼
+[Step 1: On-Chain Resolution]
+  ├── Fetch GET /issuers (all issuer public keys & accreditation status)
+  └── Fetch GET /batches/{batch_id}/leaves (for each matched credential)
+             │
+             ▼
+[Step 2: BBS+ Selective Disclosure]
+  └── For each requirement: derive blinded signature bound to request.nonce
+             │
+             ▼
+[Step 3: zk-SNARK Proving (if age predicate requested)]
+  ├── Download /zk/age_gte.wasm & /zk/age_gte.zkey (cached)
+  └── snarkjs.groth16.fullProve: prove dob_days <= cutoff_days on dob_commitment
+             │
+             ▼
+[Step 4: Submission to Verifier Gateway]
+  └── POST /presentation-requests/{id}/presentations with Presentation payload
+             │
+             ▼
+[Step 5: Verdict Display]
+  └── Render Verification result (Accepted / Rejected with step breakdown)
 ```
 
 ---
 
-## 2. Technical Specifications
+## 2. Component Specifications
 
-### 2.1 Route & Query Parsing (`WalletRespondPage.tsx`)
-- Reads URL query parameter:
-  ```typescript
-  const [searchParams] = useSearchParams();
-  const requestId = searchParams.get('request');
-  ```
-- Consumes TanStack query hook:
-  ```typescript
-  const { data: request, isLoading, error } = usePresentationRequest(requestId || undefined);
-  ```
-- Loads local wallet credentials asynchronously on mount:
-  ```typescript
-  const [localCredentials, setLocalCredentials] = useState<SignedCredential[]>([]);
-  useEffect(() => {
-    getStoredCredentials().then(setLocalCredentials);
-  }, []);
-  ```
+### 2.1 API Query Helpers (`frontend/src/api/queries/`)
 
-### 2.2 Local Credential Matching Algorithm
-For each requirement $R \in \text{request.policy.requirements}$:
-```typescript
-interface RequirementMatch {
-  requirement: PresentationRequirement;
-  matchedCredential: SignedCredential | null;
-  isSatisfied: boolean;
-}
-
-const matches: RequirementMatch[] = (request.policy?.requirements || []).map((req) => {
-  const match = localCredentials.find(
-    (c) => c.type === req.credential_type
-  );
-  return {
-    requirement: req,
-    matchedCredential: match || null,
-    isSatisfied: Boolean(match),
-  };
-});
-
-const allRequirementsSatisfied = matches.every((m) => m.isSatisfied);
-```
-
-### 2.3 3-Tier Disclosure Architecture (`ConsentScreen.tsx`)
-
-#### Tier 1: Selectively Disclosed Fields (`reveal`)
-- Cryptographically revealed via BBS+ blinded signature selective disclosure:
-  ```typescript
-  const revealedFields = requirements.flatMap((r) => r.reveal);
-  ```
-- Displayed with distinctive visual badges showing field name and source credential.
-
-#### Tier 2: Proven in Zero-Knowledge (`predicates`)
-- Conditions verified using Groth16 zk-SNARKs and cryptographic proofs where plaintext data is mathematically hidden:
-  - Range proofs: `Age ≥ X years` (via Poseidon commit + snarkjs).
-  - Accreditation: Issuer accredited on Base Sepolia `IssuerRegistry`.
-  - Batch inclusion: Poseidon Merkle membership proof against on-chain batch root.
-  - Non-revocation: Real-time bitstring check on Base Sepolia `StatusRegistry`.
-
-#### Tier 3: Never Collected / Client-Side Encrypted (`never_collect`)
-- Sensitive PII fields that remain strictly on the student's device:
-  ```typescript
-  const neverCollectFields = request.policy?.never_collect || ['holder_name', 'dob', 'address'];
-  ```
-- Renders a prominent privacy shield guaranteeing that student identity and address are never transmitted over the network.
-
-### 2.4 Action Execution & V1.1 Bridge
-- If `allRequirementsSatisfied === false`:
-  - Action button rendered in disabled state:
-    `"Missing Required Credentials in Wallet"`
-- If `allRequirementsSatisfied === true`:
-  - In V1, full browser proof generation arrives in `V1.1-S1`.
-  - Button displays:
-    `"Authorize & Generate Proof (Staged for V1.1)"`
-  - On click, displays an informative confirmation toast/dialog explaining that credential matching and disclosure consent are cryptographically verified, preparing for the V1.1 proving pipeline.
+1. **`issuers.ts`**:
+   - `fetchBatchLeaves(batchId: string): Promise<string[]>`:
+     Calls `GET /batches/${batchId}/leaves` and returns `data.leaves`.
+2. **`verifiers.ts`**:
+   - `useSubmitPresentation(requestId: string)`:
+     TanStack mutation wrapping `submitPresentation(requestId, presentation)` which invalidates `['presentation-requests', requestId, 'verifications']`.
 
 ---
 
-## 3. UI Tokens & Styling
+### 2.2 Proving Progress Modal (`ProvingProgressModal.tsx`)
 
-- Backgrounds: Dark slate/plum (`#090614`, `#130e24`, `#1a1430`)
-- Accent & Highlights: Teal (`#06838d`), Mint (`#79bab6`)
-- Status Badges:
-  - Success/Satisfied: `#10b981` (Emerald)
-  - Pending/Notice: `#79bab6` (Mint)
-  - Warning/Missing: `#fb7185` (Rose)
-- Typography: Strict adherence to zero hardcoded URLs or mock text.
+Visual multi-step stepper overlay displaying live progress:
+- **State enumeration**:
+  - `FETCHING_DEPS` ("Resolving On-Chain Issuers & Batch Anchors...")
+  - `DERIVING_BBS` ("Deriving Blinded BBS+ Signatures & Merkle Proofs...")
+  - `PROVING_AGE` ("Generating Groth16 zk-SNARK Age Proof in WebAssembly...")
+  - `SUBMITTING` ("Submitting Cryptographic Presentation to Verifier...")
+  - `COMPLETED` ("Verification Process Complete!")
+  - `FAILED` ("Presentation Generation Failed")
+- Design:
+  - Dark glassmorphic modal with pulsing mint/teal indicators, elapsed time counter, and detailed micro-status.
+
+---
+
+### 2.3 Presentation Result Card (`PresentationResultCard.tsx`)
+
+Rendered when `submitPresentation` returns:
+- **Accepted State**:
+  - Emerald badge: `VERIFIED PORTABLE CREDENTIAL`
+  - Verifier evaluation chain summary: all 4 evaluation stages green (`Issuer BBS+ Signature`, `Zero-Knowledge Proof`, `On-Chain Revocation`, `Key-Epoch & Batch Anchor`).
+  - Disclosed attributes list (e.g., `degree_name: MBBS`, `graduation_year: 2024`).
+  - Privacy reassurance badge: sensitive PII (`holder_name`, `dob`, `address`) was mathematically proven client-side and never sent.
+  - Action buttons:
+    - `View in Verifier Portal` (`/verifier/requests/${requestId}`)
+    - `Back to Student Wallet` (`/wallet`)
+- **Rejected State**:
+  - Rose badge: `PRESENTATION REJECTED`
+  - Step breakdown highlighting the failed stage and error code (e.g. `AGE_PROOF_INVALID`, `REVOKED`, etc.).
+  - `Try Again` action button.
+
+---
+
+### 2.4 Integration in `ConsentScreen.tsx` & `WalletRespondPage.tsx`
+
+- When user clicks "Confirm & Sign" in the consent confirmation dialog:
+  1. Open `ProvingProgressModal` with initial step `FETCHING_DEPS`.
+  2. For all matched credentials, extract `batch_id` values and fetch all leaves via `fetchBatchLeaves`.
+  3. Format `issuerKeys: Array<{ key_id, public_key }>` and `issuers: Record<string, IssuerInfo>` from the `useIssuers()` hook data.
+  4. Call `createPresentation(...)` from `@/lib/zk.ts`.
+  5. Post result via `submitPresentation(request.id, presentation)`.
+  6. On success/failure, update modal to `COMPLETED` and mount `PresentationResultCard`.
+
+---
+
+## 3. Security, Privacy & Fail-Closed Invariants
+
+1. **Client-Side Only**:
+   - `dob` and `dob_salt` never leave the browser. Only the Groth16 zk-SNARK `proof` and `public_signals` (`[dob_commitment, cutoff_days]`) are included in the presentation payload.
+2. **Replay Protection**:
+   - The BBS+ blinded proof header contains `request.nonce`. Submitting consumes the nonce on-chain/in-DB. A stale or re-submitted presentation is rejected with `BBS_INVALID` or `NONCE_USED`.
+3. **Fail-Closed Verification**:
+   - If any needed batch is unanchored or leaves do not contain the commitment, `createPresentation` immediately throws `ZkCoreError("MISSING_CREDENTIAL")` rather than generating a malformed payload.
+
+---
+
+## 4. Verification & Validation Steps
+
+1. Run `pnpm --filter frontend typecheck` to confirm strict TypeScript compliance.
+2. Run `pnpm --filter frontend build` to verify clean production compilation.
+3. Run `bash scripts/check-hardcoded.sh` to ensure zero hardcoded constants or secrets.
+4. Execute full in-browser test:
+   - Navigate to `http://localhost:5173/verifier`, create an employment verification request for MBBS + Age $\ge 21$.
+   - Open generated `/wallet/respond?request=<id>`.
+   - Click "Authorize & Sign Zero-Knowledge Presentation".
+   - Watch the multi-step progress modal complete in < 2 seconds.
+   - Confirm verification result shows `accepted` on both the respond page and the verifier portal.
