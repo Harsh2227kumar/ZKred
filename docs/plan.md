@@ -1,76 +1,85 @@
-# V1.1-S3 Master Plan: Natural Language Policy Parse UX & Bedrock Integration
+# V1.1-S4 Master Plan: QA Pass #1 & End-to-End Demo Verification
 
 > **Owner:** SPARSH (Frontend & DevOps Lead)  
-> **Task ID:** `V1.1-S3`  
-> **Branch:** `sparsh/V1.1-S3-nl-parse-ux`  
+> **Task ID:** `V1.1-S4`  
+> **Branch:** `sparsh/V1.1-S4-qa-pass1`  
 > **Target:** `dev`  
-> **Objective:** Deliver the complete Natural Language Policy Compiler UX on `/verifier`. Transforms plain English verification requirements into cryptographic presentation policies using AWS Bedrock Claude Sonnet (`POST /presentation-requests/parse`), displays compiled policies as interactive readable chips, showcases data minimisation notes, handles `POLICY_AMBIGUOUS` clarifying questions with guided edit-and-retry, and seamlessly connects into request creation.
+> **Objective:** Conduct QA Pass #1 across the entire ZKred platform to validate Gate G2 readiness (H10). Rigorously audit the end-to-end credential lifecycle: Institutional Issuance → Student Wallet Claim → AI Policy Compiler → Browser ZK Prover → Verifier Evaluation Chain. Verify containerized deployment scripts (`docker-compose`, Dockerfiles, Caddy) and document any bugs or integration requests in `SPARSH-PROGRESS.md`.
 
 ---
 
-## 1. Problem Statement & Judge Context
+## 1. Context & Scope
 
-In **Problem Statement 3 (CASCADE '26)**, verifiers must specify complex zero-knowledge selective disclosure and ZK range constraints without requiring manual cryptographic engineering.
-Under Task `V1.1-H3`, HARSH deployed the Claude Sonnet Bedrock pipeline (`backend/src/ai/policy.ts`), which converts plain-English sentences into strictly validated `PresentationPolicy` schemas via forced tool calls, returning `consent_summary` and `minimisation_notes`, or throwing `422 POLICY_AMBIGUOUS` with clarifying questions.
+Under Milestone V1.1, the team delivered the full cryptographic core and user-facing workflows:
+- `V1.1-H1`: In-browser ZK presentation builder (`@zkred/zk-core`).
+- `V1.1-H2`: Deterministic 4-stage verification engine (`core/verifier.ts`).
+- `V1.1-H3`: Bedrock Claude Sonnet NL policy parser with Zod retry and clarifying questions.
+- `V1.1-S1`: Wallet presentation prover UI with animated proving modal.
+- `V1.1-S2`: Verifier evaluation chain visualizer and privacy invariant panel.
+- `V1.1-S3`: Natural language policy parse UX with readable chips, minimisation notes, and ambiguity retry.
 
-The goal of **`V1.1-S3`** is to build the front-facing user experience:
-1. **Interactive Readable Chips**:
-   - Visual inspection of the compiled policy broken down into:
-     - Credential Type chips
-     - Revealed Attributes chips (selective disclosure)
-     - Zero-Knowledge Predicate chips (e.g. `Age ≥ 21` via Groth16)
-     - Equality Constraints chips (e.g. `degree_name == MBBS`)
-     - Never-Collected PII guardrails (e.g. `holder_name`, `dob`, `address` marked with lock icons)
-2. **Data Minimisation Rationale (`minimisation_notes`)**:
-   - Clear visual card showcasing what Bedrock intentionally withheld or proved in zero-knowledge to protect holder privacy (e.g. *"Date of birth not requested: age ≥ 21 is proven with a zero-knowledge proof instead"*).
-3. **Ambiguity Resolution Flow (`POLICY_AMBIGUOUS`)**:
-   - When the employer prompt is too vague or incomplete, Claude returns clarifying questions (`questions[]`).
-   - The UI surfaces these questions in an interactive card with single-click suggested additions and an instant edit-and-retry input.
-4. **Seamless Creation & Edit-and-Retry**:
-   - Verifiers can either:
-     - 1-Click publish the AI-compiled policy directly to `POST /presentation-requests`.
-     - Or click "Customize in Visual Builder" to pre-fill the form and adjust individual constraints.
+**Task V1.1-S4** executes the comprehensive QA Pass #1 across all these interconnected pillars to ensure the demo path is rock-solid before Milestone V1.2.
 
 ---
 
-## 2. Component Architecture
+## 2. Five-Phase Audit Methodology
 
-```text
-frontend/src/features/verifier/
-├── components/
-│   ├── CompiledPolicyChips.tsx       # Visual card rendering requirements as chips & never-collect PII
-│   ├── MinimisationNotesCard.tsx     # Explains privacy guarantees & what was withheld/proven
-│   ├── AmbiguityQuestionsCard.tsx    # Displays 422 POLICY_AMBIGUOUS questions & quick-resolve suggestions
-│   ├── PolicyPromptTemplates.tsx     # One-click demo prompts (Doctor qualification, Engineer, Ambiguous test)
-│   ├── ManualPolicyBuilder.tsx       # Updated to sync bi-directionally with AI compiled policy
-│   └── VerificationStages.tsx        # (From V1.1-S2)
-└── pages/
-    └── VerifierPage.tsx              # Host page coordinating NL compile, ambiguity handling, and visual builder
-```
+### Phase 1: Institutional Issuance & Anchoring (`/issuer`)
+- Verify admin token authorization (`sessionStorage`).
+- Verify institutional registration on Base Sepolia (`POST /issuers`).
+- Verify BLS12-381 key epoch display, hash pinning, and key rotation controls.
+- Verify schema-driven credential issuance and recipient lookup (`/wallets/lookup`).
+- Verify batch lifecycle and timestamped Merkle tree anchoring on-chain (`POST /issuers/:id/batches/:batchId/anchor`).
+
+### Phase 2: Student Wallet & Privacy Controls (`/wallet`)
+- Verify local ECDH P-256 keypair generation via WebCrypto in IndexedDB (`idb-keyval`).
+- Verify inbox polling, decrypting encrypted offers, and BBS+ signature validation.
+- Verify credential list rendering with selective PII toggle.
+- Verify client-side encrypted backup export and restoration with PBKDF2 / AES-GCM.
+
+### Phase 3: Natural Language Policy Compiler (`/verifier`)
+- Verify prompt template injection and plain-English compilation (`POST /presentation-requests/parse`).
+- Verify data minimisation notes and readable chips rendering.
+- Verify `422 POLICY_AMBIGUOUS` handling with interactive clarifying questions and edit-and-retry.
+- Verify fallback handling if AWS Bedrock is offline (`502 AI_UNAVAILABLE`).
+- Verify seamless handoff to `ManualPolicyBuilder`.
+
+### Phase 4: In-Browser ZK Presentation Prover (`/wallet/respond?request=:id`)
+- Verify request nonce loading and credential matching against local IndexedDB store.
+- Verify 3-tier privacy consent presentation.
+- Verify WebAssembly Groth16 age SNARK proving (< 5 seconds on modern browsers).
+- Verify BBS+ selective disclosure proof generation.
+- Verify presentation encryption and submission (`POST /presentation-requests/:id/presentations`).
+
+### Phase 5: Verifier Evaluation Chain (`/verifier/requests/:requestId`)
+- Verify 2-second polling automatically picks up student submission.
+- Verify all 4 sequential evaluation nodes (`issuer_signature` → `zk_claim` → `revocation_status` → `key_epoch_anchor`).
+- Verify converging "Verified Portable Credential" badge on acceptance.
+- Verify "Never Received by Verifier (0 bytes transmitted)" privacy invariant panel.
+- Verify mobile QR code rendering with `qrcode.react`.
+
+### Phase 6: Deployment & Infrastructure Audit (`infra/`)
+- Verify Dockerfiles for backend and frontend.
+- Verify `docker-compose.yml` local orchestration (Postgres 16, backend, frontend, Caddy).
+- Verify `setup-ec2.sh` and `deploy.sh` script safety and zero hardcoded secrets.
 
 ---
 
 ## 3. Strict Rules & Constraints (`AGENTS.md`)
 
-1. **Folder Ownership (`AGENTS.md` §1)**:
-   - SPARSH owns: `frontend/`, `docs/`, `md/progress/SPARSH-PROGRESS.md`.
-   - Never touch backend code or smart contracts.
-2. **Zero Hardcoded Data (`AGENTS.md` §2)**:
-   - All credential types, issuer kinds, and verification steps come from `/meta/enums` and `/meta/credential-schemas`.
-   - AI outputs come exclusively from `POST /presentation-requests/parse`.
-   - Zero mock responses or fake policy objects.
-3. **Fail-Closed & Error Safety**:
-   - `502 AI_UNAVAILABLE` → Graceful banner with one-click switch to the Visual Builder.
-   - `422 POLICY_AMBIGUOUS` → Friendly guided questions card with edit-and-retry.
+1. **Ownership**:
+   - SPARSH owns `frontend/`, `infra/`, `scripts/`, `docs/`, `md/progress/SPARSH-PROGRESS.md`.
+   - Never modify backend or smart contracts directly; write requests to HARSH under "Requests to others".
+2. **Zero Hardcoded Data**:
+   - Verify that all seed data, tokens, and RPC endpoints come from environment variables.
+   - Run `bash scripts/check-hardcoded.sh`.
+3. **Fail-Closed Principle**:
+   - Confirm that if any cryptographic verification stage or chain RPC is unavailable, evaluation strictly fails closed.
 
 ---
 
-## 4. Verification & Testing Gates
+## 4. Acceptance Deliverables
 
-1. **TypeScript Typecheck**: `pnpm --filter frontend typecheck` passing with 0 errors.
-2. **Hardcoded Scan**: `bash scripts/check-hardcoded.sh` passing.
-3. **Frontend Production Build**: `pnpm --filter frontend build` compiling cleanly.
-4. **End-to-End Compile Flow**:
-   - Test canonical employer sentence: *"Verify the candidate holds an accredited MBBS Degree and is at least 21 years old without revealing name or date of birth"*.
-   - Verify chips, minimisation notes, and consent summary render properly.
-   - Test ambiguous input (e.g. *"Verify eligibility"*) and verify clarifying questions appear.
+1. Full audit report documented in `docs/implementation.md`.
+2. Any identified bugs, polish items, or requests logged in `md/progress/SPARSH-PROGRESS.md`.
+3. Green quality gates: `pnpm --filter frontend typecheck`, `check-hardcoded.sh`, and `pnpm --filter frontend build`.
