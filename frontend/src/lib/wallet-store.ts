@@ -19,12 +19,15 @@ export interface FullWalletBackupState {
   metadata: WalletMetadata;
   keypair: WalletKeypair;
   credentials: SignedCredential[];
+  /** Commitments of credentials replaced by a refreshed copy (breach recovery). Optional: older backups lack it. */
+  replaced_commitments?: string[];
   exported_at: string;
 }
 
 const META_KEY = 'zkred_wallet_meta';
 const KEYPAIR_KEY = 'zkred_wallet_key';
 const CREDENTIALS_KEY = 'zkred_credentials';
+const REPLACED_KEY = 'zkred_replaced_commitments';
 
 // Volatile in-memory passphrase (cleared on reload/close)
 let memoryPassphrase = '';
@@ -82,10 +85,31 @@ export async function addStoredCredential(cred: SignedCredential): Promise<Signe
   return updated;
 }
 
+/** Removes one credential (by commitment) from this device; returns what is left. */
+export async function removeStoredCredential(commitment: string): Promise<SignedCredential[]> {
+  const remaining = (await getStoredCredentials()).filter((c) => c.values?.commitment !== commitment);
+  await saveStoredCredentials(remaining);
+  await set(REPLACED_KEY, (await getReplacedCommitments()).filter((c) => c !== commitment));
+  return remaining;
+}
+
+/** Commitments of credentials whose refreshed copy was requested: they are never offered to verifiers again. */
+export async function getReplacedCommitments(): Promise<string[]> {
+  return (await get<string[]>(REPLACED_KEY)) ?? [];
+}
+
+export async function markCredentialReplaced(commitment: string): Promise<string[]> {
+  const replaced = await getReplacedCommitments();
+  const next = replaced.includes(commitment) ? replaced : [...replaced, commitment];
+  await set(REPLACED_KEY, next);
+  return next;
+}
+
 export async function clearWalletStore(): Promise<void> {
   await del(META_KEY);
   await del(KEYPAIR_KEY);
   await del(CREDENTIALS_KEY);
+  await del(REPLACED_KEY);
   clearSessionPassphrase();
 }
 
@@ -96,6 +120,7 @@ export async function getFullWalletState(): Promise<FullWalletBackupState | null
   const meta = await getWalletMetadata();
   const keys = await getWalletKeypair();
   const creds = await getStoredCredentials();
+  const replaced = await getReplacedCommitments();
 
   if (!meta || !keys) return null;
 
@@ -104,6 +129,7 @@ export async function getFullWalletState(): Promise<FullWalletBackupState | null
     metadata: meta,
     keypair: keys,
     credentials: creds,
+    replaced_commitments: replaced,
     exported_at: new Date().toISOString(),
   };
 }
@@ -118,6 +144,7 @@ export async function restoreWalletState(state: FullWalletBackupState): Promise<
   await saveWalletMetadata(state.metadata);
   await saveWalletKeypair(state.keypair);
   await saveStoredCredentials(state.credentials || []);
+  await set(REPLACED_KEY, state.replaced_commitments ?? []);
 }
 
 // ---------------------------------------------------------------------------
